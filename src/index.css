@@ -1,0 +1,121 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Brand Colors */
+  --color-primary: #0B53C3;
+  --color-secondary: #FF6F00;
+  --color-accent: #7A1FA2;
+
+  --color-brand-blue: #0B53C3;
+  --color-brand-orange: #FF6F00;
+  --color-brand-purple: #7A1FA2;
+
+  /* Primary color mappings for deep royal blue */
+  --color-blue-50: #EEF4FC;
+  --color-blue-100: #D5E4F8;
+  --color-blue-200: #B2CEF3;
+  --color-blue-300: #81AEEB;
+  --color-blue-400: #4989E0;
+  --color-blue-500: #216AD2;
+  --color-blue-600: #0B53C3;
+  --color-blue-700: #0841A1;
+  --color-blue-800: #0B3783;
+  --color-blue-900: #0E306D;
+
+  --color-indigo-50: #EEF4FC;
+  --color-indigo-100: #D5E4F8;
+  --color-indigo-200: #B2CEF3;
+  --color-indigo-300: #81AEEB;
+  --color-indigo-400: #4989E0;
+  --color-indigo-500: #216AD2;
+  --color-indigo-600: #0B53C3;
+  --color-indigo-700: #0841A1;
+  --color-indigo-800: #0B3783;
+  --color-indigo-900: #0E306D;
+
+  /* Secondary color mappings for vibrant orange */
+  --color-orange-50: #FFF3E0;
+  --color-orange-100: #FFE0B2;
+  --color-orange-200: #FFCC80;
+  --color-orange-300: #FFB74D;
+  --color-orange-400: #FFA726;
+  --color-orange-500: #FF9800;
+  --color-orange-600: #FF6F00;
+  --color-orange-700: #E65100;
+  --color-orange-800: #CC4C00;
+  --color-orange-900: #9E3600;
+
+  /* Accent color mappings for purple-magenta */
+  --color-purple-50: #F3E5F5;
+  --color-purple-100: #E1BEE7;
+  --color-purple-200: #CE93D8;
+  --color-purple-300: #BA68C8;
+  --color-purple-400: #AB47BC;
+  --color-purple-500: #9C27B0;
+  --color-purple-600: #7A1FA2;
+  --color-purple-700: #6A1B9A;
+  --color-purple-800: #4A148C;
+  --color-purple-900: #300A5C;
+}
+
+/* Sleek Interface design theme styles */
+.sleek-shadow {
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+}
+
+.sidebar-gradient {
+  background: linear-gradient(180deg, #1E293B 0%, #0F172A 100%);
+}
+
+.accent-bg {
+  background: #0B53C3;
+}
+
+.stat-card-gradient {
+  background: linear-gradient(135deg, #FFFFFF 0%, #F1F5F9 100%);
+}
+
+.badge-gold {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.badge-blue {
+  background: #DBEAFE;
+  color: #1E40AF;
+}
+
+.active-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10B981;
+}
+
+/* Custom premium styling utilities */
+body {
+  font-family: var(--font-sans);
+  background-color: #F8FAFC; /* Sleek Interface page bg is F8FAFC */
+  color: #1E293B; /* Slate-800 text */
+}
+
+/* Scrollbar customizations */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+

@@ -1,0 +1,10 @@
+{
+  "name": "English Fluency Campaign Platform",
+  "description": "A comprehensive web platform for students to practice English writing and speaking fluency, complete with structured assessments, progress tracking, and a learning hub.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

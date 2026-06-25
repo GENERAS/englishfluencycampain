@@ -1,0 +1,181 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account information, level, stats, and role",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["student", "admin", "teacher"] },
+        "level": { "type": "string", "enum": ["Beginner", "Intermediate", "Advanced"] },
+        "school": { "type": "string" },
+        "xp": { "type": "number" },
+        "streak": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "badges": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["userId", "name", "email", "role", "level", "createdAt"]
+    },
+    "Writing": {
+      "title": "Writing Submission",
+      "description": "Essay, letter, or prompt response submitted by a student",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["letter", "essay", "prompt"] },
+        "promptId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "reviewed"] },
+        "feedback": { "type": "string" },
+        "score": {
+          "type": "object",
+          "properties": {
+            "grammar": { "type": "number" },
+            "vocabulary": { "type": "number" },
+            "structure": { "type": "number" },
+            "clarity": { "type": "number" },
+            "total": { "type": "number" }
+          }
+        },
+        "reviewedBy": { "type": "string" },
+        "reviewedAt": { "type": "string", "format": "date-time" },
+        "commentsCount": { "type": "number" },
+        "likesCount": { "type": "number" },
+        "likes": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "title", "content", "userId", "userName", "timestamp", "type", "status"]
+    },
+    "SpeakingSubmission": {
+      "title": "Speaking Submission",
+      "description": "Voice audio submission for evaluation or weekly challenges",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "promptText": { "type": "string" },
+        "audioUrl": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pending", "reviewed"] },
+        "feedback": { "type": "string" },
+        "score": {
+          "type": "object",
+          "properties": {
+            "pronunciation": { "type": "number" },
+            "fluency": { "type": "number" },
+            "vocabulary": { "type": "number" },
+            "grammar": { "type": "number" },
+            "total": { "type": "number" }
+          }
+        },
+        "reviewedBy": { "type": "string" },
+        "reviewedAt": { "type": "string", "format": "date-time" },
+        "commentsCount": { "type": "number" },
+        "likesCount": { "type": "number" },
+        "likes": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "promptText", "audioUrl", "userId", "userName", "timestamp", "status"]
+    },
+    "Lesson": {
+      "title": "Lesson Content",
+      "description": "Structured grammar, vocabulary lists, speaking challenges, or writing prompts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string", "enum": ["grammar", "vocabulary", "challenge", "prompt"] },
+        "difficultyLevel": { "type": "string", "enum": ["Beginner", "Intermediate", "Advanced"] },
+        "contentBody": { "type": "string" },
+        "resources": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "category", "difficultyLevel", "contentBody", "createdAt"]
+    },
+    "Debate": {
+      "title": "Debate Discussion",
+      "description": "Topic-based debate discussions for community engagement",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "difficultyLevel": { "type": "string", "enum": ["Beginner", "Intermediate", "Advanced"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "closed"] },
+        "votesFor": { "type": "number" },
+        "votesAgainst": { "type": "number" },
+        "voters": { "type": "object" }
+      },
+      "required": ["id", "title", "description", "difficultyLevel", "createdAt", "status"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "User comment on writing, speaking submissions or debates",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "targetId": { "type": "string" },
+        "targetType": { "type": "string", "enum": ["writing", "speaking", "debate"] },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userRole": { "type": "string" },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "side": { "type": "string", "enum": ["for", "against", "neutral"] }
+      },
+      "required": ["id", "targetId", "targetType", "userId", "userName", "content", "timestamp"]
+    },
+    "Report": {
+      "title": "Moderation Report",
+      "description": "Reports flagged by users for inappropriate writing, speaking or comment content",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "targetId": { "type": "string" },
+        "targetType": { "type": "string", "enum": ["writing", "speaking", "comment", "debate"] },
+        "reason": { "type": "string" },
+        "reportedBy": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pending", "resolved"] }
+      },
+      "required": ["id", "targetId", "targetType", "reason", "reportedBy", "timestamp", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles and performance stats"
+    },
+    "/writings/{writingId}": {
+      "schema": "Writing",
+      "description": "Essays, letters and prompts submitted by students"
+    },
+    "/speakingSubmissions/{speakingId}": {
+      "schema": "SpeakingSubmission",
+      "description": "Voice practice submissions and challenges"
+    },
+    "/lessons/{lessonId}": {
+      "schema": "Lesson",
+      "description": "Grammar lessons, vocabularies, speaking prompts"
+    },
+    "/debates/{debateId}": {
+      "schema": "Debate",
+      "description": "Community speaking or writing debate topics"
+    },
+    "/comments/{commentId}": {
+      "schema": "Comment",
+      "description": "Discussion comments linked to writings, speaking submissions or debates"
+    },
+    "/reports/{reportId}": {
+      "schema": "Report",
+      "description": "Inappropriate content reports flagged for moderation"
+    }
+  }
+}
