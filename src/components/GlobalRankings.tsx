@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Trophy, Flame, Search, Globe, School, Award, Sparkles, Star, ArrowUp } from "lucide-react";
+import { Trophy, Flame, Search, Globe, School, Award, Sparkles, Star, ArrowUp, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { UserProfile } from "../types";
-import { subscribeToAllUsers } from "../firebase-utils";
+import { subscribeToAllUsers, getWeeklyXp } from "../firebase-utils";
 
 interface GlobalRankingsProps {
   user: UserProfile;
@@ -12,6 +12,7 @@ export const GlobalRankings: React.FC<GlobalRankingsProps> = ({ user }) => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState<"global" | "school">("global");
+  const [timeframeFilter, setTimeframeFilter] = useState<"all_time" | "this_week">("all_time");
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
@@ -20,8 +21,6 @@ export const GlobalRankings: React.FC<GlobalRankingsProps> = ({ user }) => {
       const studentProfiles = allUsers.filter(
         (u) => !u.role || u.role === "student"
       );
-      // Sort by XP descending
-      studentProfiles.sort((a, b) => (b.xp || 0) - (a.xp || 0));
       setUsers(studentProfiles);
       setLoading(false);
     });
@@ -29,8 +28,16 @@ export const GlobalRankings: React.FC<GlobalRankingsProps> = ({ user }) => {
     return () => unsubscribe();
   }, []);
 
+  // Sort student profiles dynamically based on selected timeframe
+  const sortedUsers = [...users].sort((a, b) => {
+    if (timeframeFilter === "this_week") {
+      return getWeeklyXp(b) - getWeeklyXp(a);
+    }
+    return (b.xp || 0) - (a.xp || 0);
+  });
+
   // Filter based on active view (Global vs School)
-  const viewFilteredUsers = users.filter((u) => {
+  const viewFilteredUsers = sortedUsers.filter((u) => {
     if (activeView === "school") {
       const userSchool = (user.school || "").trim().toLowerCase();
       const otherSchool = (u.school || "").trim().toLowerCase();
@@ -47,8 +54,8 @@ export const GlobalRankings: React.FC<GlobalRankingsProps> = ({ user }) => {
   });
 
   // Find current user's ranks
-  const globalRank = users.findIndex((u) => u.userId === user.userId) + 1;
-  const schoolUsers = users.filter(
+  const globalRank = sortedUsers.findIndex((u) => u.userId === user.userId) + 1;
+  const schoolUsers = sortedUsers.filter(
     (u) => (u.school || "").trim().toLowerCase() === (user.school || "").trim().toLowerCase()
   );
   const schoolRank = schoolUsers.findIndex((u) => u.userId === user.userId) + 1;
@@ -123,9 +130,13 @@ export const GlobalRankings: React.FC<GlobalRankingsProps> = ({ user }) => {
             <Sparkles className="h-6 w-6 fill-amber-400 animate-pulse" />
           </div>
           <div>
-            <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Your Fluency XP</div>
+            <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+              {timeframeFilter === "this_week" ? "Your Weekly XP" : "Your Fluency XP"}
+            </div>
             <div className="text-xl font-extrabold font-mono text-amber-300">
-              {(user.xp || 0).toLocaleString()} XP
+              {timeframeFilter === "this_week" 
+                ? `${getWeeklyXp(user).toLocaleString()} XP` 
+                : `${(user.xp || 0).toLocaleString()} XP`}
             </div>
             <div className="text-[11px] text-slate-300 mt-0.5 flex items-center gap-1">
               <Flame className="h-3.5 w-3.5 text-orange-500 fill-orange-500 shrink-0" />
@@ -137,45 +148,73 @@ export const GlobalRankings: React.FC<GlobalRankingsProps> = ({ user }) => {
 
       {/* Main Leaderboard Panel */}
       <div className="rounded-2xl border border-slate-100 bg-white p-6 sleek-shadow space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-50">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-slate-50">
           <div>
             <h2 className="text-lg font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
               <Star className="h-5 w-5 text-amber-500 fill-amber-400" />
               Campaign Leaderboard
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">Real-time academic standing of campaign students based on total XP</p>
+            <p className="text-xs text-slate-500 mt-0.5">Real-time academic standing of campaign students</p>
           </div>
 
-          {/* Toggle buttons */}
-          <div className="flex p-1 bg-slate-50 border border-slate-100 rounded-xl shrink-0 self-start sm:self-auto">
-            <button
-              onClick={() => {
-                setActiveView("global");
-                setSearchQuery("");
-              }}
-              className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-extrabold transition-all cursor-pointer ${
-                activeView === "global"
-                  ? "bg-white text-blue-600 shadow-xs border border-slate-200/40"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <Globe className="h-3.5 w-3.5" />
-              <span>Global</span>
-            </button>
-            <button
-              onClick={() => {
-                setActiveView("school");
-                setSearchQuery("");
-              }}
-              className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-extrabold transition-all cursor-pointer ${
-                activeView === "school"
-                  ? "bg-white text-indigo-600 shadow-xs border border-slate-200/40"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <School className="h-3.5 w-3.5" />
-              <span>My School</span>
-            </button>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Scope Toggle */}
+            <div className="flex p-1 bg-slate-50 border border-slate-100 rounded-xl shrink-0">
+              <button
+                onClick={() => {
+                  setActiveView("global");
+                  setSearchQuery("");
+                }}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-extrabold transition-all cursor-pointer ${
+                  activeView === "global"
+                    ? "bg-white text-blue-600 shadow-xs border border-slate-200/40"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <Globe className="h-3.5 w-3.5" />
+                <span>Global</span>
+              </button>
+              <button
+                onClick={() => {
+                  setActiveView("school");
+                  setSearchQuery("");
+                }}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-extrabold transition-all cursor-pointer ${
+                  activeView === "school"
+                    ? "bg-white text-indigo-600 shadow-xs border border-slate-200/40"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <School className="h-3.5 w-3.5" />
+                <span>My School</span>
+              </button>
+            </div>
+
+            {/* Timeframe Toggle */}
+            <div className="flex p-1 bg-slate-50 border border-slate-100 rounded-xl shrink-0">
+              <button
+                onClick={() => setTimeframeFilter("all_time")}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-extrabold transition-all cursor-pointer ${
+                  timeframeFilter === "all_time"
+                    ? "bg-white text-amber-600 shadow-xs border border-slate-200/40"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <Trophy className="h-3.5 w-3.5 text-amber-500" />
+                <span>All Time</span>
+              </button>
+              <button
+                onClick={() => setTimeframeFilter("this_week")}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-extrabold transition-all cursor-pointer ${
+                  timeframeFilter === "this_week"
+                    ? "bg-white text-emerald-600 shadow-xs border border-slate-200/40"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <Flame className="h-3.5 w-3.5 text-emerald-500 fill-emerald-500/20" />
+                <span>This Week</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -216,7 +255,9 @@ export const GlobalRankings: React.FC<GlobalRankingsProps> = ({ user }) => {
                   <th className="py-3 px-4">Student</th>
                   <th className="py-3 px-4 hidden md:table-cell">School</th>
                   <th className="py-3 px-4 text-center w-28">Streak</th>
-                  <th className="py-3 px-4 text-right w-28">Total XP</th>
+                  <th className="py-3 px-4 text-right w-28">
+                    {timeframeFilter === "this_week" ? "Weekly XP" : "Total XP"}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -236,7 +277,7 @@ export const GlobalRankings: React.FC<GlobalRankingsProps> = ({ user }) => {
                         <div className="flex justify-center">
                           {renderRankBadge(
                             activeView === "global"
-                              ? users.findIndex((u) => u.userId === profile.userId)
+                              ? sortedUsers.findIndex((u) => u.userId === profile.userId)
                               : schoolUsers.findIndex((u) => u.userId === profile.userId)
                           )}
                         </div>
@@ -277,6 +318,12 @@ export const GlobalRankings: React.FC<GlobalRankingsProps> = ({ user }) => {
                                   {profile.level}
                                 </span>
                               )}
+                              {(!profile.dailyTasksCompleted?.speaking || !profile.dailyTasksCompleted?.writing || !profile.dailyTasksCompleted?.vocabulary) && (
+                                <span className="inline-flex items-center gap-0.5 text-[8.5px] font-bold text-amber-700 bg-amber-50/70 border border-amber-150 px-1.5 py-0.5 rounded-md uppercase shrink-0" title="Has pending speaking, writing, or vocabulary tasks for today">
+                                  <AlertCircle className="h-3 w-3 text-amber-500 shrink-0" />
+                                  <span>Uncompleted Tasks</span>
+                                </span>
+                              )}
                             </div>
                             <span className="text-[10px] text-slate-500 block md:hidden truncate max-w-[200px]">
                               {profile.school || "Lincoln High School"}
@@ -307,7 +354,9 @@ export const GlobalRankings: React.FC<GlobalRankingsProps> = ({ user }) => {
                       {/* XP Column */}
                       <td className="py-3.5 px-4 text-right">
                         <span className="text-xs font-extrabold font-mono text-slate-800">
-                          {(profile.xp || 0).toLocaleString()}
+                          {timeframeFilter === "this_week"
+                            ? getWeeklyXp(profile).toLocaleString()
+                            : (profile.xp || 0).toLocaleString()}
                         </span>
                         <span className="text-[9px] text-slate-400 font-semibold uppercase tracking-wider ml-1">XP</span>
                       </td>
@@ -320,7 +369,7 @@ export const GlobalRankings: React.FC<GlobalRankingsProps> = ({ user }) => {
         )}
 
         {/* Motivational Banner & Catch-up indicator */}
-        {!loading && users.length > 0 && currentViewRank > 1 && (
+        {!loading && sortedUsers.length > 0 && currentViewRank > 1 && (
           <div className="rounded-xl bg-indigo-50/40 border border-indigo-100/50 p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="rounded-full bg-indigo-500 text-white p-1.5 shrink-0">
@@ -334,8 +383,9 @@ export const GlobalRankings: React.FC<GlobalRankingsProps> = ({ user }) => {
                     {Math.max(
                       0,
                       ((activeView === "global"
-                        ? users[currentViewRank - 2]?.xp
-                        : schoolUsers[currentViewRank - 2]?.xp) || 0) - (user.xp || 0)
+                        ? (timeframeFilter === "this_week" ? getWeeklyXp(sortedUsers[currentViewRank - 2]) : sortedUsers[currentViewRank - 2]?.xp)
+                        : (timeframeFilter === "this_week" ? getWeeklyXp(schoolUsers[currentViewRank - 2]) : schoolUsers[currentViewRank - 2]?.xp)) || 0) - 
+                      (timeframeFilter === "this_week" ? getWeeklyXp(user) : (user.xp || 0))
                     ).toLocaleString()}{" "}
                     XP
                   </strong>{" "}

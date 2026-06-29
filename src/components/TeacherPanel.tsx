@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   BookOpen, 
   Plus, 
@@ -14,10 +14,11 @@ import {
   ChevronRight, 
   GraduationCap, 
   ShieldAlert, 
-  RefreshCw 
+  RefreshCw,
+  Upload
 } from "lucide-react";
 import { Lesson, LessonTracking, UserProfile } from "../types";
-import { getLessons, getLessonTrackings, createTeacherLesson } from "../firebase-utils";
+import { getLessons, getLessonTrackings, createTeacherLesson, uploadPdfFile } from "../firebase-utils";
 import { useToast } from "./Toast";
 
 interface TeacherPanelProps {
@@ -40,6 +41,38 @@ export const TeacherPanel: React.FC<TeacherPanelProps> = ({ user }) => {
   const [lessonBody, setLessonBody] = useState("");
   const [lessonResources, setLessonResources] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.type !== "application/pdf") {
+        showToast("Please upload a PDF file only.", "error");
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        showToast("PDF must be smaller than 10MB.", "error");
+        return;
+      }
+
+      setIsUploadingPdf(true);
+      try {
+        const fileUrl = await uploadPdfFile(file);
+        if (lessonResources) {
+          setLessonResources(prev => `${prev}, ${fileUrl}`);
+        } else {
+          setLessonResources(fileUrl);
+        }
+        showToast(`Successfully uploaded PDF: ${file.name}! Added to Study Materials.`, "success");
+      } catch (err) {
+        console.error("PDF upload failed:", err);
+        showToast("Failed to upload PDF. Please try again.", "error");
+      } finally {
+        setIsUploadingPdf(false);
+      }
+    }
+  };
 
   // Time-locked publication values
   const [lastCreatedLesson, setLastCreatedLesson] = useState<Lesson | null>(null);
@@ -475,14 +508,39 @@ export const TeacherPanel: React.FC<TeacherPanelProps> = ({ user }) => {
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">
                     Study Materials / External Resource URLs (Optional, Comma-Separated)
                   </label>
-                  <input
-                    type="text"
-                    value={lessonResources}
-                    onChange={(e) => setLessonResources(e.target.value)}
-                    placeholder="e.g. https://dictionary.cambridge.org, https://britishcouncil.org"
-                    className="w-full text-xs font-semibold text-slate-800 border border-slate-200 rounded-xl px-3.5 py-2.5 focus:border-indigo-500 outline-none transition"
-                    disabled={!canPublish}
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={lessonResources}
+                      onChange={(e) => setLessonResources(e.target.value)}
+                      placeholder="e.g. https://dictionary.cambridge.org, https://britishcouncil.org"
+                      className="flex-1 text-xs font-semibold text-slate-800 border border-slate-200 rounded-xl px-3.5 py-2.5 focus:border-indigo-500 outline-none transition"
+                      disabled={!canPublish}
+                    />
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handlePdfUpload}
+                      accept="application/pdf"
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingPdf || !canPublish}
+                      className="px-4 py-2 bg-slate-50 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-100 hover:border-slate-300 font-bold text-xs flex items-center gap-1.5 transition shrink-0 cursor-pointer disabled:opacity-50"
+                    >
+                      {isUploadingPdf ? (
+                        <div className="h-4 w-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Upload className="h-4 w-4" />
+                      )}
+                      <span>Upload PDF</span>
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    You can input resource links directly or click "Upload PDF" to upload course materials for students.
+                  </p>
                 </div>
 
                 <div className="flex justify-end pt-3">

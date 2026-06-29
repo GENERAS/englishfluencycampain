@@ -28,6 +28,7 @@ export interface UserProfile {
     vocabulary?: boolean;
   };
   weeklySpotlight?: boolean;
+  weeklyXp?: number;
   spotlightReason?: string;
   spotlightWeek?: string;
   studyGoals?: {
@@ -36,11 +37,17 @@ export interface UserProfile {
     reachedTargetXp?: boolean;
     targetXpEarned?: number;
     claimDate?: string;
+    essaySubmitted?: boolean;
+    speakingSubmitted?: boolean;
+    peerFeedbackGiven?: boolean;
   };
   notificationSettings?: {
     emailDebate?: boolean;
     emailFeedback?: boolean;
     pushReplies?: boolean;
+    notifyOnFeedback?: boolean;
+    notifyOnReplies?: boolean;
+    weeklyDigest?: boolean;
   };
   xpHistory?: { [dateStr: string]: number };
 }
@@ -145,6 +152,11 @@ export interface Comment {
   content: string;
   timestamp: string;
   side?: "for" | "against" | "neutral"; // For debate comments
+  parentCommentId?: string;
+  replyToUserId?: string;
+  replyToUserName?: string;
+  helpfulCount?: number;
+  helpfulVoters?: string[];
 }
 
 export interface Report {
@@ -176,5 +188,18 @@ export interface Founder {
   imageUrl?: string;
   displayOrder: number;
   createdAt?: string;
+}
+
+export interface InAppNotification {
+  id: string;
+  userId: string; // Target student who receives this notification
+  senderId: string; // Creator of the action
+  senderName: string;
+  type: "comment_debate" | "reply_comment" | "helpful_critique";
+  targetId: string; // Debate ID
+  targetTitle: string; // Debate Topic Title
+  content: string; // Message content
+  timestamp: string;
+  read: boolean;
 }
 

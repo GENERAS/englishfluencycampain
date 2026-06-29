@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { ArrowRight, Award, MessageSquare, Mic, ShieldAlert, Sparkles, Star, Users, CheckCircle, Globe, BookOpen, Send, Loader2, Award as Medal, Heart, Mail, Check } from "lucide-react";
-import { getCampaignRealStats, getFounders, subscribeToAllUsers } from "../firebase-utils";
+import { ArrowRight, Award, MessageSquare, Mic, ShieldAlert, Sparkles, Star, Users, CheckCircle, Globe, BookOpen, Send, Loader2, Award as Medal, Heart, Mail, Check, Camera, Upload, Image } from "lucide-react";
+import { getCampaignRealStats, getFounders, subscribeToAllUsers, updateFounder, uploadImageToCloudinary } from "../firebase-utils";
 import { EFCLogo } from "./EFCLogo";
 import { Founder, UserProfile } from "../types";
 import { motion, AnimatePresence } from "motion/react";
@@ -33,6 +33,90 @@ export const CampaignLanding: React.FC<CampaignLandingProps> = ({
   const [contactForm, setContactForm] = useState({ name: "", email: "", school: "", message: "" });
   const [submittedContact, setSubmittedContact] = useState(false);
   const { showToast } = useToast();
+
+  // Founders Photo Editing States
+  const [editingFounderPhoto, setEditingFounderPhoto] = useState<Founder | null>(null);
+  const [customPhotoUrl, setCustomPhotoUrl] = useState("");
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isSavingPhoto, setIsSavingPhoto] = useState(false);
+
+  const canEditFounder = (founder: Founder) => {
+    if (!user || !user.email) return false;
+    const emailLower = user.email.toLowerCase().trim();
+    
+    // Admins can edit any founder card
+    if (user.role === "admin") return true;
+
+    // Specific founder matches based on email address containing keywords
+    if (founder.id === "seed_founder_1" || founder.name.toLowerCase().includes("generas") || founder.name.toLowerCase().includes("kagiraneza")) {
+      return emailLower.includes("generas") || emailLower.includes("kagiraneza");
+    }
+    if (founder.id === "seed_founder_2" || founder.name.toLowerCase().includes("emmy") || founder.name.toLowerCase().includes("niyonshuti")) {
+      return emailLower.includes("emmy") || emailLower.includes("niyonshuti") || emailLower.includes("mremmy");
+    }
+    if (founder.id === "seed_founder_3" || founder.name.toLowerCase().includes("simplice") || founder.name.toLowerCase().includes("mugisha")) {
+      return emailLower.includes("simplice") || emailLower.includes("mugisha");
+    }
+    if (founder.id === "seed_founder_4" || founder.name.toLowerCase().includes("shema") || founder.name.toLowerCase().includes("bonaventure")) {
+      return emailLower.includes("shema") || emailLower.includes("bonaventure");
+    }
+    return false;
+  };
+
+  const handleFounderPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith("image/")) {
+      showToast("Please select a valid image file.", "error");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showToast("Image must be less than 5MB.", "error");
+      return;
+    }
+
+    setIsUploadingPhoto(true);
+    try {
+      const url = await uploadImageToCloudinary(file);
+      setCustomPhotoUrl(url);
+      showToast("Image uploaded successfully! Remember to save changes.", "success");
+    } catch (err) {
+      console.error("Photo upload failed:", err);
+      showToast("Failed to upload image. Try using a URL instead.", "error");
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const handleSaveFounderPhoto = async () => {
+    if (!editingFounderPhoto) return;
+    
+    setIsSavingPhoto(true);
+    try {
+      await updateFounder(editingFounderPhoto.id, { imageUrl: customPhotoUrl });
+      
+      // Update local state immediately
+      setLocalFounders(prev => prev.map(f => f.id === editingFounderPhoto.id ? { ...f, imageUrl: customPhotoUrl } : f));
+      
+      showToast(`${editingFounderPhoto.name}'s photo updated successfully!`, "success");
+      setEditingFounderPhoto(null);
+    } catch (err) {
+      console.error("Failed to update founder photo:", err);
+      showToast("Failed to save changes. Please try again.", "error");
+    } finally {
+      setIsSavingPhoto(false);
+    }
+  };
+
+  const AVATAR_PRESETS = [
+    { name: "Professional Male", url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200" },
+    { name: "Professional Female 1", url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200" },
+    { name: "Professional Male 2", url: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=200" },
+    { name: "Professional Female 2", url: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200" },
+    { name: "Educator Male", url: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200" },
+    { name: "Educator Female", url: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200" }
+  ];
 
   // Weekly Spotlight States
   const [spotlights, setSpotlights] = useState<UserProfile[]>([]);
@@ -107,6 +191,131 @@ export const CampaignLanding: React.FC<CampaignLandingProps> = ({
 
   return (
     <div className="bg-slate-50/50 min-h-screen">
+      {/* Weekly Student Spotlights Section */}
+      <section className="py-16 bg-gradient-to-b from-amber-500/5 to-white border-b border-slate-100">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto space-y-3 mb-12">
+            <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-700 border border-amber-500/25 text-xs font-extrabold uppercase tracking-wide">
+              <Star className="h-3.5 w-3.5 fill-current text-amber-500 animate-spin-slow" />
+              <span>Weekly EFC Student Spotlights</span>
+            </div>
+            <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight sm:text-4xl">
+              Exemplifying English Fluency
+            </h2>
+            <p className="text-sm text-slate-500 leading-relaxed">
+              Every week, our Campaign Administrators highlight outstanding student scholars who completed challenging fluency badges, achieved remarkable XP milestones, and led peer debates.
+            </p>
+          </div>
+
+          {loadingSpotlights ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-3">
+              <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading Weekly Champions...</span>
+            </div>
+          ) : spotlights.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center max-w-lg mx-auto shadow-xs space-y-3">
+              <span className="text-3xl">🏅</span>
+              <h3 className="text-sm font-bold text-slate-800">No Weekly Champions Pinned Yet</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Keep practicing essays, submitting audio recordings, and participating in peer debates! Campaign Administrators select student spotlight champions every Friday.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {spotlights.map((student) => (
+                <div
+                  key={student.userId}
+                  className="relative rounded-2xl border border-amber-200 bg-white p-6 shadow-md shadow-amber-500/5 hover:translate-y-[-4px] transition duration-300 flex flex-col justify-between overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300"
+                >
+                  {/* Decorative glowing background corner */}
+                  <div className="absolute top-0 right-0 h-24 w-24 rounded-bl-full bg-amber-500/5 pointer-events-none" />
+
+                  <div className="space-y-4">
+                    {/* Top Header Badge & Week */}
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500 text-slate-950 text-[9px] font-extrabold uppercase px-2.5 py-1 tracking-wider">
+                        👑 Student Champion
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-400 font-mono">
+                        {student.spotlightWeek || "Active Week"}
+                      </span>
+                    </div>
+
+                    {/* Student Info Card */}
+                    <div className="flex items-center gap-3 pt-1">
+                      <div className="h-12 w-12 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-300 p-[2px] shadow-sm shrink-0">
+                        {student.imageUrl ? (
+                          <img
+                            src={student.imageUrl}
+                            alt={student.name}
+                            className="h-full w-full object-cover rounded-lg border-2 border-white"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="h-full w-full rounded-lg bg-slate-950 text-white flex items-center justify-center font-extrabold text-sm uppercase">
+                            {student.name.split(" ").map(n => n[0]).join("").substring(0, 2)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-0.5">
+                        <h4 className="text-sm font-extrabold text-slate-800 leading-snug">{student.name}</h4>
+                        <p className="text-[11px] text-slate-500 font-semibold">{student.school}</p>
+                      </div>
+                    </div>
+
+                    {/* XP & Level Badges */}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <span className="px-2.5 py-1 rounded-lg border border-blue-100 bg-blue-50 text-[10px] font-extrabold text-blue-700">
+                        {student.level || "Beginner"} Level
+                      </span>
+                      <span className="px-2.5 py-1 rounded-lg border border-amber-100 bg-amber-50 text-[10px] font-extrabold text-amber-700 font-mono">
+                        {student.xp || 0} XP
+                      </span>
+                    </div>
+
+                    {/* Completed Badges Row */}
+                    {student.badges && student.badges.length > 0 && (
+                      <div className="space-y-1.5 pt-1">
+                        <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Completed Badges</div>
+                        <div className="flex flex-wrap gap-1">
+                          {student.badges.map((b, idx) => (
+                            <span key={idx} className="bg-slate-100 text-[9px] font-bold px-2 py-0.5 rounded-md text-slate-600">
+                              🏆 {b}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Commendation Quote block */}
+                    {student.spotlightReason && (
+                      <div className="relative border-l-2 border-amber-500 bg-amber-500/5 rounded-r-xl p-3.5 mt-2">
+                        <span className="absolute -top-1 -left-1 text-2xl text-amber-500 opacity-20 font-serif">“</span>
+                        <p className="text-xs text-slate-600 italic leading-relaxed">
+                          {student.spotlightReason}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Connect Trigger */}
+                  <div className="pt-5 mt-4 border-t border-slate-50">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSpotlight(student)}
+                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-slate-800 transition cursor-pointer active:scale-95 shadow-sm"
+                    >
+                      <MessageSquare className="h-3.5 w-3.5" />
+                      View Credentials & Talk 💬
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-white py-16 sm:py-24 border-b border-slate-100">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -223,131 +432,6 @@ export const CampaignLanding: React.FC<CampaignLandingProps> = ({
         </div>
       </section>
 
-      {/* Weekly Student Spotlights Section */}
-      <section className="py-16 bg-gradient-to-b from-white to-slate-50/50 border-b border-slate-100">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto space-y-3 mb-12">
-            <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-700 border border-amber-500/25 text-xs font-extrabold uppercase tracking-wide">
-              <Star className="h-3.5 w-3.5 fill-current text-amber-500" />
-              <span>Weekly EFC Student Spotlights</span>
-            </div>
-            <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight sm:text-4xl">
-              Exemplifying English Fluency
-            </h2>
-            <p className="text-sm text-slate-500 leading-relaxed">
-              Every week, our Campaign Administrators highlight outstanding student scholars who completed challenging fluency badges, achieved remarkable XP milestones, and led peer debates.
-            </p>
-          </div>
-
-          {loadingSpotlights ? (
-            <div className="flex flex-col items-center justify-center py-12 space-y-3">
-              <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading Weekly Champions...</span>
-            </div>
-          ) : spotlights.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center max-w-lg mx-auto shadow-xs space-y-3">
-              <span className="text-3xl">🏅</span>
-              <h3 className="text-sm font-bold text-slate-800">No Weekly Champions Pinned Yet</h3>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Keep practicing essays, submitting audio recordings, and participating in peer debates! Campaign Administrators select student spotlight champions every Friday.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {spotlights.map((student) => (
-                <div
-                  key={student.userId}
-                  className="relative rounded-2xl border border-amber-200 bg-white p-6 shadow-md shadow-amber-500/5 hover:translate-y-[-4px] transition duration-300 flex flex-col justify-between overflow-hidden"
-                >
-                  {/* Decorative glowing background corner */}
-                  <div className="absolute top-0 right-0 h-24 w-24 rounded-bl-full bg-amber-500/5 pointer-events-none" />
-
-                  <div className="space-y-4">
-                    {/* Top Header Badge & Week */}
-                    <div className="flex items-center justify-between">
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500 text-slate-950 text-[9px] font-extrabold uppercase px-2.5 py-1 tracking-wider">
-                        👑 Student Champion
-                      </span>
-                      <span className="text-[10px] font-bold text-slate-400 font-mono">
-                        {student.spotlightWeek || "Active Week"}
-                      </span>
-                    </div>
-
-                    {/* Student Info Card */}
-                    <div className="flex items-center gap-3 pt-1">
-                      <div className="h-12 w-12 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-300 p-[2px] shadow-sm shrink-0">
-                        {student.imageUrl ? (
-                          <img
-                            src={student.imageUrl}
-                            alt={student.name}
-                            className="h-full w-full object-cover rounded-lg border-2 border-white"
-                            referrerPolicy="no-referrer"
-                          />
-                        ) : (
-                          <div className="h-full w-full rounded-lg bg-slate-950 text-white flex items-center justify-center font-extrabold text-sm uppercase">
-                            {student.name.split(" ").map(n => n[0]).join("").substring(0, 2)}
-                          </div>
-                        )}
-                      </div>
-                      <div className="space-y-0.5">
-                        <h4 className="text-sm font-extrabold text-slate-800 leading-snug">{student.name}</h4>
-                        <p className="text-[11px] text-slate-500 font-semibold">{student.school}</p>
-                      </div>
-                    </div>
-
-                    {/* XP & Level Badges */}
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      <span className="px-2.5 py-1 rounded-lg border border-blue-100 bg-blue-50 text-[10px] font-extrabold text-blue-700">
-                        {student.level || "Beginner"} Level
-                      </span>
-                      <span className="px-2.5 py-1 rounded-lg border border-amber-100 bg-amber-50 text-[10px] font-extrabold text-amber-700 font-mono">
-                        {student.xp || 0} XP
-                      </span>
-                    </div>
-
-                    {/* Completed Badges Row */}
-                    {student.badges && student.badges.length > 0 && (
-                      <div className="space-y-1.5 pt-1">
-                        <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Completed Badges</div>
-                        <div className="flex flex-wrap gap-1">
-                          {student.badges.map((b, idx) => (
-                            <span key={idx} className="bg-slate-100 text-[9px] font-bold px-2 py-0.5 rounded-md text-slate-600">
-                              🏆 {b}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Commendation Quote block */}
-                    {student.spotlightReason && (
-                      <div className="relative border-l-2 border-amber-500 bg-amber-500/5 rounded-r-xl p-3.5 mt-2">
-                        <span className="absolute -top-1 -left-1 text-2xl text-amber-500 opacity-20 font-serif">“</span>
-                        <p className="text-xs text-slate-600 italic leading-relaxed">
-                          {student.spotlightReason}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Connect Trigger */}
-                  <div className="pt-5 mt-4 border-t border-slate-50">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedSpotlight(student)}
-                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-slate-800 transition cursor-pointer active:scale-95 shadow-sm"
-                    >
-                      <MessageSquare className="h-3.5 w-3.5" />
-                      View Credentials & Talk 💬
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
       {/* Our Mission & Value Proposition */}
       <section id="mission" className="py-20 bg-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -442,7 +526,7 @@ export const CampaignLanding: React.FC<CampaignLandingProps> = ({
       {/* Founders & Educational Developers Section */}
       <section id="founders" className="py-20 bg-slate-50/50 border-b border-slate-100">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
+          <div className="text-center max-w-3xl mx-auto space-y-4 mb-12">
             <div className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 px-3.5 py-1 text-xs font-bold text-orange-600 border border-orange-100 shadow-xs">
               <Sparkles className="h-3 w-3" />
               <span>Student Led Initiative</span>
@@ -454,6 +538,20 @@ export const CampaignLanding: React.FC<CampaignLandingProps> = ({
               Meet the passionate high school leaders, developers, and curriculum designers who co-founded EFC to foster confidence, fluency, and leadership among Rwandan students.
             </p>
           </div>
+
+          {user && displayFounders.some(f => canEditFounder(f)) && (
+            <div className="mb-10 max-w-2xl mx-auto rounded-2xl bg-blue-50/80 border border-blue-100 p-4 flex items-start gap-3 shadow-xs">
+              <Sparkles className="h-5 w-5 text-blue-600 shrink-0 mt-0.5 animate-pulse" />
+              <div>
+                <p className="text-xs font-bold text-blue-900">
+                  Welcome back, Core Founder / Administrator!
+                </p>
+                <p className="text-[11px] text-blue-700 mt-1 leading-relaxed">
+                  You have authorized editing rights on the Founders HALL below. You can change your card's photo to replace any AI-generated placeholder by clicking the blue <Camera className="h-3 w-3 inline-block" /> camera icon on your avatar.
+                </p>
+              </div>
+            </div>
+          )}
 
           {displayLoading ? (
             <div className="flex flex-col items-center justify-center py-16 space-y-3">
@@ -474,24 +572,39 @@ export const CampaignLanding: React.FC<CampaignLandingProps> = ({
                   
                   <div>
                     <div className="flex items-start gap-4 mb-5">
-                      {/* Avatar Photo with dynamic initials placeholder */}
-                      {founder.imageUrl ? (
-                        <div className="relative h-16 w-16 rounded-2xl overflow-hidden border-2 border-slate-100 shadow-xs flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
-                          <img 
-                            src={founder.imageUrl} 
-                            alt={founder.name} 
-                            className="h-full w-full object-cover"
-                            referrerPolicy="no-referrer"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = "none";
+                      {/* Avatar Photo with dynamic initials placeholder and inline camera button */}
+                      <div className="relative flex-shrink-0">
+                        {founder.imageUrl ? (
+                          <div className="relative h-16 w-16 rounded-2xl overflow-hidden border-2 border-slate-100 shadow-xs group-hover:scale-105 transition-transform duration-300 flex items-center justify-center bg-slate-50">
+                            <img 
+                              src={founder.imageUrl} 
+                              alt={founder.name} 
+                              className="h-full w-full object-cover"
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = "none";
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="h-16 w-16 rounded-2xl bg-gradient-to-tr from-blue-50 to-indigo-100 border border-indigo-100 flex items-center justify-center text-blue-700 font-extrabold text-xl shadow-xs group-hover:scale-105 transition-transform duration-300">
+                            {founder.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase()}
+                          </div>
+                        )}
+
+                        {canEditFounder(founder) && (
+                          <button
+                            onClick={() => {
+                              setEditingFounderPhoto(founder);
+                              setCustomPhotoUrl(founder.imageUrl || "");
                             }}
-                          />
-                        </div>
-                      ) : (
-                        <div className="h-16 w-16 rounded-2xl bg-gradient-to-tr from-blue-50 to-indigo-100 border border-indigo-100 flex items-center justify-center text-blue-700 font-extrabold text-xl shadow-xs flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
-                          {founder.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase()}
-                        </div>
-                      )}
+                            title="Edit Founder Photo"
+                            className="absolute -bottom-1 -right-1 p-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-md transition-all cursor-pointer hover:scale-110 flex items-center justify-center z-10"
+                          >
+                            <Camera className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
 
                       <div className="space-y-1">
                         <h3 className="text-base font-extrabold text-slate-900 group-hover:text-blue-600 transition-colors">
@@ -765,6 +878,169 @@ export const CampaignLanding: React.FC<CampaignLandingProps> = ({
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Founder Photo Edit Modal */}
+      {editingFounderPhoto && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-3xl border border-slate-100 p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-6 relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-blue-600 via-orange-500 to-purple-600" />
+
+            <div className="flex justify-between items-start pt-2">
+              <div className="space-y-1">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-800 text-[10px] font-extrabold uppercase tracking-wide">
+                  <Camera className="h-3 w-3 text-blue-600" />
+                  Update Founder Profile Photo
+                </span>
+                <h3 className="text-xl font-extrabold text-slate-900">
+                  {editingFounderPhoto.name}
+                </h3>
+                <p className="text-xs text-slate-400 font-semibold">{editingFounderPhoto.role}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingFounderPhoto(null)}
+                className="rounded-full bg-slate-100 p-1.5 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Image Preview */}
+              <div className="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                <div className="h-28 w-28 rounded-2xl overflow-hidden border-4 border-white shadow-md bg-slate-100 mb-3 relative flex items-center justify-center">
+                  {customPhotoUrl ? (
+                    <img 
+                      src={customPhotoUrl} 
+                      alt="Preview" 
+                      className="h-full w-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <span className="text-slate-400 text-xs font-bold uppercase">No Image</span>
+                  )}
+                  {isUploadingPhoto && (
+                    <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center text-white">
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    </div>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Photo Preview</p>
+              </div>
+
+              {/* Option 1: File Upload */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Option 1: Upload Image File
+                </label>
+                <div className="relative border border-slate-200 rounded-xl bg-white p-3 flex items-center justify-between hover:border-blue-300 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <Upload className="h-4 w-4 text-slate-400" />
+                    <span className="text-xs text-slate-500 font-medium truncate">
+                      Select image (JPEG, PNG, max 5MB)
+                    </span>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFounderPhotoUpload}
+                    disabled={isUploadingPhoto || isSavingPhoto}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                  <button 
+                    type="button" 
+                    className="bg-blue-50 text-blue-700 font-bold text-xs px-3 py-1.5 rounded-lg border border-blue-100 pointer-events-none"
+                  >
+                    Browse
+                  </button>
+                </div>
+              </div>
+
+              {/* Option 2: Image URL */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Option 2: Paste Image URL
+                </label>
+                <div className="relative flex rounded-xl border border-slate-200 overflow-hidden focus-within:border-blue-500 transition-colors">
+                  <input
+                    type="text"
+                    placeholder="https://example.com/photo.jpg"
+                    value={customPhotoUrl}
+                    onChange={(e) => setCustomPhotoUrl(e.target.value)}
+                    disabled={isUploadingPhoto || isSavingPhoto}
+                    className="flex-1 text-xs font-medium px-3.5 py-2.5 outline-none text-slate-800 bg-white"
+                  />
+                  {customPhotoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setCustomPhotoUrl("")}
+                      className="px-3 text-slate-400 hover:text-slate-600 text-xs font-bold bg-slate-50 border-l border-slate-200"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Option 3: Presets */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Option 3: Choose Professional Preset
+                </label>
+                <div className="grid grid-cols-6 gap-2">
+                  {AVATAR_PRESETS.map((preset, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      title={preset.name}
+                      onClick={() => setCustomPhotoUrl(preset.url)}
+                      disabled={isUploadingPhoto || isSavingPhoto}
+                      className={`relative h-10 w-10 rounded-lg overflow-hidden border-2 transition-all cursor-pointer hover:scale-105 ${customPhotoUrl === preset.url ? 'border-blue-600 scale-105 shadow-md' : 'border-slate-100'}`}
+                    >
+                      <img src={preset.url} alt={preset.name} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                      {customPhotoUrl === preset.url && (
+                        <div className="absolute inset-0 bg-blue-600/10 flex items-center justify-center">
+                          <Check className="h-3.5 w-3.5 text-blue-600 bg-white rounded-full p-0.5 shadow-sm" />
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingFounderPhoto(null)}
+                  disabled={isSavingPhoto}
+                  className="w-1/2 rounded-xl border border-slate-200 text-slate-500 hover:text-slate-700 font-bold text-xs py-3 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveFounderPhoto}
+                  disabled={isUploadingPhoto || isSavingPhoto}
+                  className="w-1/2 rounded-xl bg-slate-900 text-white font-extrabold text-xs py-3 hover:bg-slate-800 active:scale-95 transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isSavingPhoto ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-3.5 w-3.5" />
+                      Save Photo
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

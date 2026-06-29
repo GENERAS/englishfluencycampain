@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { MessageSquare, ThumbsUp, Vote, AlertTriangle, Users, BookOpen, Send, Sparkles, CheckCircle, Trophy } from "lucide-react";
-import { UserProfile, DebateTopic, Comment, WritingSubmission } from "../types";
-import { getDebates, castDebateVote, addComment, getComments, getWritings, toggleLike, submitReport, subscribeToDebates, subscribeToComments } from "../firebase-utils";
+import { MessageSquare, ThumbsUp, Vote, AlertTriangle, Users, BookOpen, Send, Sparkles, CheckCircle, Trophy, Bell, CornerDownRight, Reply, Check, Trash, Award } from "lucide-react";
+import { UserProfile, DebateTopic, Comment, WritingSubmission, InAppNotification } from "../types";
+import { getDebates, castDebateVote, addComment, getComments, getWritings, toggleLike, submitReport, subscribeToDebates, subscribeToComments, subscribeToNotifications, markNotificationAsRead, markAllNotificationsAsRead, awardHelpfulBadgeToComment } from "../firebase-utils";
 import { useToast } from "./Toast";
 import { GlobalRankings } from "./GlobalRankings";
 
@@ -30,6 +30,19 @@ export const CommunityDebate: React.FC<CommunityDebateProps> = ({ user }) => {
   const [reportingTarget, setReportingTarget] = useState<{ id: string; type: string } | null>(null);
   const [reportReason, setReportReason] = useState("");
   const [reportedSuccessfully, setReportedSuccessfully] = useState(false);
+
+  // Notifications and Replying State
+  const [notifications, setNotifications] = useState<InAppNotification[]>([]);
+  const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
+  const [replyingToComment, setReplyingToComment] = useState<Comment | null>(null);
+
+  useEffect(() => {
+    if (!user?.userId) return;
+    const unsubscribe = subscribeToNotifications(user.userId, (list) => {
+      setNotifications(list);
+    });
+    return () => unsubscribe();
+  }, [user?.userId]);
 
   useEffect(() => {
     loadPeerWritings();
@@ -105,9 +118,15 @@ export const CommunityDebate: React.FC<CommunityDebateProps> = ({ user }) => {
         user.name,
         user.role,
         newComment.trim(),
-        commentSide
+        commentSide,
+        replyingToComment ? replyingToComment.id : undefined,
+        replyingToComment ? replyingToComment.userId : undefined,
+        replyingToComment ? replyingToComment.userName : undefined,
+        undefined, // debate topic doesn't belong to any student specifically
+        selectedDebate.title
       );
       setNewComment("");
+      setReplyingToComment(null);
       showToast("Your debate argument has been posted!", "success");
     } catch (err) {
       console.error("Error posting debate comment:", err);
@@ -125,9 +144,16 @@ export const CommunityDebate: React.FC<CommunityDebateProps> = ({ user }) => {
         user.userId,
         user.name,
         user.role,
-        newWritingComment.trim()
+        newWritingComment.trim(),
+        undefined,
+        replyingToComment ? replyingToComment.id : undefined,
+        replyingToComment ? replyingToComment.userId : undefined,
+        replyingToComment ? replyingToComment.userName : undefined,
+        selectedWriting.userId, // notifies essay author
+        selectedWriting.title
       );
       setNewWritingComment("");
+      setReplyingToComment(null);
       loadWritingComments(selectedWriting.id);
       showToast("Constructive critique posted successfully!", "success");
     } catch (err) {
@@ -148,6 +174,27 @@ export const CommunityDebate: React.FC<CommunityDebateProps> = ({ user }) => {
     } catch (err) {
       console.error("Error liking writing:", err);
       showToast("Failed to toggle upvote.", "error");
+    }
+  };
+
+  const handleAwardHelpfulBadge = async (commentId: string) => {
+    try {
+      const res = await awardHelpfulBadgeToComment(commentId, user.userId, user.name);
+      if (res.success) {
+        if (selectedWriting) {
+          loadWritingComments(selectedWriting.id);
+        }
+        if (res.awardedBadge) {
+          showToast("Helpful Critique badge awarded successfully! 🏅", "success");
+        } else {
+          showToast("Helpful Critique designation removed.", "info");
+        }
+      } else {
+        showToast("Could not process Helpful designation.", "error");
+      }
+    } catch (err) {
+      console.error("Error awarding helpful badge:", err);
+      showToast("An error occurred.", "error");
     }
   };
 
@@ -191,41 +238,163 @@ export const CommunityDebate: React.FC<CommunityDebateProps> = ({ user }) => {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      {/* Tab Switcher */}
-      <div className="flex border-b border-slate-200 mb-8 overflow-x-auto scrollbar-none">
-        <button
-          onClick={() => setActiveTab("debates")}
-          className={`flex items-center gap-2 px-6 py-3.5 text-sm font-bold border-b-2 transition-all shrink-0 cursor-pointer ${
-            activeTab === "debates"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-slate-500 hover:text-slate-800"
-          }`}
-        >
-          <Vote className="h-4.5 w-4.5" />
-          <span>Vocal & Logic Debates</span>
-        </button>
-        <button
-          onClick={() => setActiveTab("peer_essays")}
-          className={`flex items-center gap-2 px-6 py-3.5 text-sm font-bold border-b-2 transition-all shrink-0 cursor-pointer ${
-            activeTab === "peer_essays"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-slate-500 hover:text-slate-800"
-          }`}
-        >
-          <BookOpen className="h-4.5 w-4.5" />
-          <span>Peer Reviewed Submissions</span>
-        </button>
-        <button
-          onClick={() => setActiveTab("rankings")}
-          className={`flex items-center gap-2 px-6 py-3.5 text-sm font-bold border-b-2 transition-all shrink-0 cursor-pointer ${
-            activeTab === "rankings"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-slate-500 hover:text-slate-800"
-          }`}
-        >
-          <Trophy className="h-4.5 w-4.5 text-amber-500" />
-          <span>Global Rankings</span>
-        </button>
+      {/* Tab Switcher & Notifications Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 mb-8 gap-4 relative">
+        <div className="flex overflow-x-auto scrollbar-none">
+          <button
+            onClick={() => setActiveTab("debates")}
+            className={`flex items-center gap-2 px-6 py-3.5 text-sm font-bold border-b-2 transition-all shrink-0 cursor-pointer ${
+              activeTab === "debates"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <Vote className="h-4.5 w-4.5" />
+            <span>Vocal & Logic Debates</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("peer_essays")}
+            className={`flex items-center gap-2 px-6 py-3.5 text-sm font-bold border-b-2 transition-all shrink-0 cursor-pointer ${
+              activeTab === "peer_essays"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <BookOpen className="h-4.5 w-4.5" />
+            <span>Peer Reviewed Submissions</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("rankings")}
+            className={`flex items-center gap-2 px-6 py-3.5 text-sm font-bold border-b-2 transition-all shrink-0 cursor-pointer ${
+              activeTab === "rankings"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <Trophy className="h-4.5 w-4.5 text-amber-500" />
+            <span>Global Rankings</span>
+          </button>
+        </div>
+
+        {/* Notifications Popover Trigger & Dropdown */}
+        <div className="relative pr-4 self-end sm:self-auto mb-2 sm:mb-0">
+          <button
+            onClick={() => setShowNotificationsDropdown(!showNotificationsDropdown)}
+            className="p-2.5 rounded-full hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition relative cursor-pointer flex items-center justify-center border border-slate-100 bg-slate-50 shadow-xs"
+            title="In-app Notifications"
+          >
+            <Bell className="h-5 w-5" />
+            {notifications.filter(n => !n.read).length > 0 && (
+              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-rose-500 text-white font-extrabold text-[9px] flex items-center justify-center animate-pulse border-2 border-white">
+                {notifications.filter(n => !n.read).length}
+              </span>
+            )}
+          </button>
+
+          {showNotificationsDropdown && (
+            <div className="absolute right-0 mt-3 w-80 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden py-1 divide-y divide-slate-100">
+              <div className="px-4 py-3 flex items-center justify-between bg-slate-50">
+                <span className="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
+                  <Bell className="h-3.5 w-3.5 text-blue-600" />
+                  Activity Inbox ({notifications.filter(n => !n.read).length} unread)
+                </span>
+                {notifications.filter(n => !n.read).length > 0 && (
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      const unreads = notifications.filter(n => !n.read).map(n => n.id);
+                      await markAllNotificationsAsRead(user.userId, unreads);
+                      showToast("All notifications marked as read", "success");
+                    }}
+                    className="text-[10px] font-extrabold text-blue-600 hover:underline cursor-pointer"
+                  >
+                    Mark all read
+                  </button>
+                )}
+              </div>
+
+              <div className="max-h-72 overflow-y-auto divide-y divide-slate-50">
+                {notifications.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-400 font-semibold space-y-1">
+                    <p>No notifications yet</p>
+                    <p className="text-[10px] text-slate-300 font-normal">You will be alerted here when peers comment on your essays or reply to your debate arguments.</p>
+                  </div>
+                ) : (
+                  notifications.map((notif) => (
+                    <button
+                      key={notif.id}
+                      onClick={async () => {
+                        if (!notif.read) {
+                          await markNotificationAsRead(notif.id);
+                        }
+                        setShowNotificationsDropdown(false);
+                        
+                        // Handle context-aware navigation automatically
+                        const isWriting = peerWritings.some(w => w.id === notif.targetId);
+                        if (isWriting) {
+                          setActiveTab("peer_essays");
+                          const w = peerWritings.find(x => x.id === notif.targetId);
+                          if (w) {
+                            setSelectedWriting(w);
+                            loadWritingComments(w.id);
+                          }
+                        } else {
+                          setActiveTab("debates");
+                          const d = debates.find(x => x.id === notif.targetId);
+                          if (d) {
+                            setSelectedDebate(d);
+                          }
+                        }
+                      }}
+                      className={`w-full p-4 hover:bg-slate-50 transition text-left cursor-pointer flex gap-3 items-start ${
+                        !notif.read ? "bg-blue-50/20 border-l-2 border-blue-500" : "border-l-2 border-transparent"
+                      }`}
+                    >
+                      <div className="mt-0.5 shrink-0">
+                        {notif.type === "reply_comment" ? (
+                          <div className="p-1.5 rounded-full bg-emerald-50 text-emerald-600">
+                            <CornerDownRight className="h-4 w-4" />
+                          </div>
+                        ) : notif.type === "helpful_critique" ? (
+                          <div className="p-1.5 rounded-full bg-amber-50 text-amber-600">
+                            <Award className="h-4 w-4" />
+                          </div>
+                        ) : (
+                          <div className="p-1.5 rounded-full bg-blue-50 text-blue-600">
+                            <MessageSquare className="h-4 w-4" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-1 flex-1">
+                        <p className="text-xs text-slate-600 leading-normal">
+                          {notif.type === "helpful_critique" ? (
+                            <span>
+                              <strong className="text-slate-900 font-extrabold">{notif.senderName}</strong> awarded you a <span className="font-extrabold text-amber-600">Helpful Critique</span> badge on your essay feedback!
+                            </span>
+                          ) : (
+                            <span>
+                              <strong className="text-slate-900 font-extrabold">{notif.senderName}</strong>{" "}
+                              {notif.type === "reply_comment" ? "replied to your thread" : "commented on your post"}{" "}
+                              on <span className="font-bold text-slate-800">"{notif.targetTitle}"</span>
+                            </span>
+                          )}
+                        </p>
+                        {notif.content && (
+                          <p className="text-[11px] text-slate-500 italic bg-slate-50/70 p-1.5 rounded-lg border border-slate-100/50 line-clamp-2 leading-relaxed">
+                            "{notif.content}"
+                          </p>
+                        )}
+                        <p className="text-[9px] text-slate-400 font-mono font-bold mt-1">
+                          {new Date(notif.timestamp).toLocaleDateString()} at {new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {activeTab === "debates" && (
@@ -348,10 +517,27 @@ export const CommunityDebate: React.FC<CommunityDebateProps> = ({ user }) => {
                     </div>
                   </div>
 
+                  {replyingToComment && (
+                    <div className="flex items-center justify-between bg-blue-50/60 border border-blue-100 rounded-xl px-4 py-2 text-xs text-blue-800 font-bold mb-3 animate-fade-in">
+                      <span className="flex items-center gap-1.5">
+                        <Reply className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                        Replying to @{replyingToComment.userName}: "{replyingToComment.content.length > 50 ? replyingToComment.content.substring(0, 50) + "..." : replyingToComment.content}"
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setReplyingToComment(null)}
+                        className="text-slate-400 hover:text-rose-500 font-extrabold cursor-pointer transition-colors"
+                      >
+                        Cancel Reply ✕
+                      </button>
+                    </div>
+                  )}
+
                   <div className="flex gap-3">
                     <input
+                      id="debate-comment-input"
                       type="text"
-                      placeholder="Support your stance with grammatical coherence and critical logic..."
+                      placeholder={replyingToComment ? `Reply to @${replyingToComment.userName}...` : "Support your stance with grammatical coherence and critical logic..."}
                       required
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
@@ -412,7 +598,40 @@ export const CommunityDebate: React.FC<CommunityDebateProps> = ({ user }) => {
                             </div>
                           </div>
                           
-                          <p className="text-xs text-slate-600 leading-relaxed pl-8">{comment.content}</p>
+                          <p className="text-xs text-slate-600 leading-relaxed pl-8">
+                            {comment.replyToUserName && (
+                              <span className="font-extrabold text-blue-600 mr-1.5">
+                                @{comment.replyToUserName}
+                              </span>
+                            )}
+                            {comment.content}
+                          </p>
+
+                          <div className="flex items-center justify-between pl-8 pt-1 border-t border-slate-50 mt-1">
+                            <div className="flex items-center gap-1.5">
+                              {comment.replyToUserName && (
+                                <span className="text-[9px] font-bold text-slate-400 flex items-center gap-0.5">
+                                  <CornerDownRight className="h-3.5 w-3.5" />
+                                  replied to @{comment.replyToUserName}
+                                </span>
+                              )}
+                            </div>
+                            {comment.userId !== user.userId && (
+                              <button
+                                onClick={() => {
+                                  setReplyingToComment(comment);
+                                  setTimeout(() => {
+                                    const el = document.getElementById("debate-comment-input");
+                                    if (el) el.focus();
+                                  }, 100);
+                                }}
+                                className="flex items-center gap-1 text-[10px] font-extrabold text-blue-600 hover:text-blue-800 cursor-pointer hover:underline"
+                              >
+                                <Reply className="h-3 w-3" />
+                                <span>Reply</span>
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -531,46 +750,141 @@ export const CommunityDebate: React.FC<CommunityDebateProps> = ({ user }) => {
                 </div>
 
                 {/* Essay comments form */}
-                <form onSubmit={handleWritingCommentSubmit} className="flex gap-3">
-                  <input
-                    type="text"
-                    placeholder="Provide supportive feedback or suggest grammar corrections..."
-                    required
-                    value={newWritingComment}
-                    onChange={(e) => setNewWritingComment(e.target.value)}
-                    className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-blue-500"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!newWritingComment.trim()}
-                    className="rounded-xl bg-slate-900 text-white px-5 py-3 text-xs font-bold hover:bg-slate-800 disabled:opacity-40 transition shrink-0 cursor-pointer"
-                  >
-                    <Send className="h-4 w-4" />
-                  </button>
-                </form>
+                <div className="space-y-3">
+                  {replyingToComment && (
+                    <div className="flex items-center justify-between bg-blue-50/60 border border-blue-100 rounded-xl px-4 py-2 text-xs text-blue-800 font-bold mb-3 animate-fade-in">
+                      <span className="flex items-center gap-1.5">
+                        <Reply className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                        Replying to @{replyingToComment.userName}: "{replyingToComment.content.length > 50 ? replyingToComment.content.substring(0, 50) + "..." : replyingToComment.content}"
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setReplyingToComment(null)}
+                        className="text-slate-400 hover:text-rose-500 font-extrabold cursor-pointer transition-colors"
+                      >
+                        Cancel Reply ✕
+                      </button>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleWritingCommentSubmit} className="flex gap-3">
+                    <input
+                      id="writing-comment-input"
+                      type="text"
+                      placeholder={replyingToComment ? `Reply to @${replyingToComment.userName}...` : "Provide supportive feedback or suggest grammar corrections..."}
+                      required
+                      value={newWritingComment}
+                      onChange={(e) => setNewWritingComment(e.target.value)}
+                      className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-blue-500"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!newWritingComment.trim()}
+                      className="rounded-xl bg-slate-900 text-white px-5 py-3 text-xs font-bold hover:bg-slate-800 disabled:opacity-40 transition shrink-0 cursor-pointer"
+                    >
+                      <Send className="h-4 w-4" />
+                    </button>
+                  </form>
+                </div>
 
                 {/* Comments List */}
                 <div className="space-y-4">
                   {writingComments.length > 0 && (
                     <div className="space-y-3">
-                      {writingComments.map((comment) => (
-                        <div key={comment.id} className="rounded-xl border border-slate-100 p-4 bg-white shadow-xs space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-slate-800">{comment.userName}</span>
-                              <span className="text-[9px] font-bold text-slate-400 capitalize">({comment.userRole})</span>
+                      {writingComments.map((comment) => {
+                        const hasHelpfulBadge = (comment.helpfulCount || 0) > 0;
+                        const userHasVotedHelpful = comment.helpfulVoters?.includes(user.userId);
+                        return (
+                          <div
+                            key={comment.id}
+                            className={`rounded-xl p-4 shadow-xs space-y-2 border transition-all ${
+                              hasHelpfulBadge
+                                ? "bg-gradient-to-br from-white to-amber-50/20 border-amber-200"
+                                : "bg-white border-slate-100"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-slate-800">{comment.userName}</span>
+                                <span className="text-[9px] font-bold text-slate-400 capitalize">({comment.userRole})</span>
+                                {hasHelpfulBadge && (
+                                  <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-extrabold text-amber-800 border border-amber-250 animate-pulse">
+                                    <Award className="h-2.5 w-2.5 text-amber-600 fill-amber-500/20" />
+                                    Helpful Critique
+                                  </span>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => handleFlagContent(comment.id, "comment", comment.content)}
+                                className="text-slate-300 hover:text-rose-500 transition-colors"
+                                title="Flag comment"
+                              >
+                                <AlertTriangle className="h-3.5 w-3.5" />
+                              </button>
                             </div>
-                            <button
-                              onClick={() => handleFlagContent(comment.id, "comment", comment.content)}
-                              className="text-slate-300 hover:text-rose-500 transition-colors"
-                              title="Flag comment"
-                            >
-                              <AlertTriangle className="h-3.5 w-3.5" />
-                            </button>
+                            
+                            <p className="text-xs text-slate-600 leading-relaxed">
+                              {comment.replyToUserName && (
+                                <span className="font-extrabold text-blue-600 mr-1.5">
+                                  @{comment.replyToUserName}
+                                </span>
+                              )}
+                              {comment.content}
+                            </p>
+
+                            <div className="flex items-center justify-between border-t border-slate-50 pt-1.5 mt-1.5">
+                              <div className="flex items-center gap-2">
+                                {comment.replyToUserName && (
+                                  <span className="text-[9px] font-bold text-slate-400 flex items-center gap-0.5">
+                                    <CornerDownRight className="h-3.5 w-3.5" />
+                                    replied to @{comment.replyToUserName}
+                                  </span>
+                                )}
+                                
+                                {/* Award Helpful Badge Toggle for peers */}
+                                {comment.userId !== user.userId ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAwardHelpfulBadge(comment.id)}
+                                    className={`flex items-center gap-1.5 text-[10px] font-extrabold px-2 py-1 rounded-lg border transition cursor-pointer ${
+                                      userHasVotedHelpful
+                                        ? "bg-amber-500 border-amber-500 text-white shadow-xs"
+                                        : "bg-slate-50 hover:bg-amber-50 border-slate-200 text-slate-500 hover:text-amber-700 hover:border-amber-300"
+                                    }`}
+                                    title={userHasVotedHelpful ? "Remove Helpful Critique designation" : "Designate as Helpful Critique"}
+                                  >
+                                    <Award className={`h-3 w-3 ${userHasVotedHelpful ? "fill-white/20" : ""}`} />
+                                    <span>Helpful{comment.helpfulCount ? ` (${comment.helpfulCount})` : ""}</span>
+                                  </button>
+                                ) : (
+                                  (comment.helpfulCount || 0) > 0 && (
+                                    <span className="flex items-center gap-1 text-[10px] font-extrabold px-2 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-100">
+                                      <Award className="h-3 w-3 text-amber-500 fill-amber-500/10" />
+                                      <span>Helpful ({comment.helpfulCount})</span>
+                                    </span>
+                                  )
+                                )}
+                              </div>
+                              
+                              {comment.userId !== user.userId && (
+                                <button
+                                  onClick={() => {
+                                    setReplyingToComment(comment);
+                                    setTimeout(() => {
+                                      const el = document.getElementById("writing-comment-input");
+                                      if (el) el.focus();
+                                    }, 100);
+                                  }}
+                                  className="flex items-center gap-1 text-[10px] font-extrabold text-blue-600 hover:text-blue-800 cursor-pointer hover:underline"
+                                >
+                                  <Reply className="h-3 w-3" />
+                                  <span>Reply</span>
+                                </button>
+                              )}
+                            </div>
                           </div>
-                          <p className="text-xs text-slate-600 leading-relaxed">{comment.content}</p>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

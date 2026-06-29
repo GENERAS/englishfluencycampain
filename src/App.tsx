@@ -427,7 +427,7 @@ function AppContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-blue-100 selection:text-blue-900 pb-16 md:pb-0">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col lg:flex-row font-sans selection:bg-blue-100 selection:text-blue-900 pb-16 lg:pb-0">
       <Navbar
         user={userProfile}
         activeTab={activeTab}
@@ -443,7 +443,7 @@ function AppContent() {
       />
 
       {/* Main Content Render area */}
-      <main className="flex-1">
+      <main className="flex-1 overflow-y-auto max-h-screen lg:h-screen">
         {isLoadingProfile ? (
           <div className="flex flex-col items-center justify-center py-32 space-y-3">
             <Loader2 className="h-10 w-10 text-blue-600 animate-spin" />

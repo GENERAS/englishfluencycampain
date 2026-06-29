@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { BookOpen, FileText, Mic, Star, Sparkles, Brain, Check, ChevronRight, Award, Target, Flame, CheckSquare, MessageSquare, AlertCircle, Calendar, PenTool } from "lucide-react";
+import { BookOpen, FileText, Mic, Star, Sparkles, Brain, Check, ChevronRight, Award, Target, Flame, CheckSquare, MessageSquare, AlertCircle, Calendar, PenTool, Download, Trash2, Cloud, Wifi } from "lucide-react";
 import { Lesson, UserProfile } from "../types";
 import { getLessons, submitDailyReflection, completeDailyTask, enrollInLesson, completeLesson, getLessonTrackings } from "../firebase-utils";
 import { CURRICULUM_MODULES, EFC_STAGES, CurriculumModule, EFC_12_WEEK_PROGRAM, WeekModule } from "../data/curriculumData";
 import { DAILY_LEARNING_PATH } from "../data/dailyLearningPathData";
+import { useToast } from "./Toast";
 
 interface LearningHubProps {
   user: UserProfile | null;
@@ -13,6 +14,7 @@ interface LearningHubProps {
 }
 
 export const LearningHub: React.FC<LearningHubProps> = ({ user, onSelectPrompt, onOpenAuth, onUserUpdate }) => {
+  const { showToast } = useToast();
   // Tabs: "dailyPath" | "twelveWeek" | "curriculum" | "custom"
   const [activeTab, setActiveTab] = useState<"dailyPath" | "twelveWeek" | "curriculum" | "custom">("dailyPath");
   
@@ -23,10 +25,53 @@ export const LearningHub: React.FC<LearningHubProps> = ({ user, onSelectPrompt, 
   // Custom lessons from database state
   const [customLessons, setCustomLessons] = useState<Lesson[]>([]);
   const [selectedCustomLesson, setSelectedCustomLesson] = useState<Lesson | null>(null);
-  const [activeCustomCategory, setActiveCustomCategory] = useState<"all" | "grammar" | "vocabulary" | "challenge" | "prompt">("all");
+  const [activeCustomCategory, setActiveCustomCategory] = useState<"all" | "grammar" | "vocabulary" | "challenge" | "prompt" | "downloaded">("all");
   const [customLessonsLoading, setCustomLessonsLoading] = useState(true);
   const [completedLessonIds, setCompletedLessonIds] = useState<string[]>([]);
   const [enrolledLessonIds, setEnrolledLessonIds] = useState<string[]>([]);
+
+  // PWA Offline Downloads State
+  const [downloadedLessonIds, setDownloadedLessonIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem("efc_downloaded_lessons_list");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const handleToggleDownloadLesson = (lesson: Lesson) => {
+    if (downloadedLessonIds.includes(lesson.id)) {
+      // Remove download
+      const newList = downloadedLessonIds.filter(id => id !== lesson.id);
+      setDownloadedLessonIds(newList);
+      localStorage.setItem("efc_downloaded_lessons_list", JSON.stringify(newList));
+      
+      try {
+        const storedData = localStorage.getItem("efc_downloaded_lessons_data");
+        const parsedData = storedData ? JSON.parse(storedData) : {};
+        delete parsedData[lesson.id];
+        localStorage.setItem("efc_downloaded_lessons_data", JSON.stringify(parsedData));
+      } catch {}
+      
+      showToast("Lesson removed from offline downloads.", "info");
+    } else {
+      // Add download
+      const newList = [...downloadedLessonIds, lesson.id];
+      setDownloadedLessonIds(newList);
+      localStorage.setItem("efc_downloaded_lessons_list", JSON.stringify(newList));
+      
+      try {
+        const storedData = localStorage.getItem("efc_downloaded_lessons_data");
+        const parsedData = storedData ? JSON.parse(storedData) : {};
+        parsedData[lesson.id] = lesson;
+        localStorage.setItem("efc_downloaded_lessons_data", JSON.stringify(parsedData));
+      } catch {}
+      
+      showToast("Lesson downloaded for offline use!", "success");
+    }
+  };
+
   
   // Custom lesson quick check state
   const [customAnswers, setCustomAnswers] = useState<{ [key: string]: string }>({});
@@ -68,6 +113,66 @@ export const LearningHub: React.FC<LearningHubProps> = ({ user, onSelectPrompt, 
     setReflectionToast(null);
   }, [currentPathDay]);
 
+  // Load completedTopics and completedWeekTopics per user from localStorage on mount/user change
+  useEffect(() => {
+    if (user?.userId) {
+      try {
+        const key = `efc_completed_topics_${user.userId}`;
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          setCompletedTopics(JSON.parse(stored));
+        } else {
+          setCompletedTopics({});
+        }
+      } catch (err) {
+        console.warn("Failed to load completed topics:", err);
+      }
+    } else {
+      setCompletedTopics({});
+    }
+  }, [user?.userId]);
+
+  useEffect(() => {
+    if (user?.userId) {
+      try {
+        const key = `efc_completed_week_topics_${user.userId}`;
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          setCompletedWeekTopics(JSON.parse(stored));
+        } else {
+          setCompletedWeekTopics({});
+        }
+      } catch (err) {
+        console.warn("Failed to load completed week topics:", err);
+      }
+    } else {
+      setCompletedWeekTopics({});
+    }
+  }, [user?.userId]);
+
+  // Persist completedTopics and completedWeekTopics when they change
+  useEffect(() => {
+    if (user?.userId && Object.keys(completedTopics).length > 0) {
+      try {
+        const key = `efc_completed_topics_${user.userId}`;
+        localStorage.setItem(key, JSON.stringify(completedTopics));
+      } catch (err) {
+        console.warn("Failed to save completed topics:", err);
+      }
+    }
+  }, [completedTopics, user?.userId]);
+
+  useEffect(() => {
+    if (user?.userId && Object.keys(completedWeekTopics).length > 0) {
+      try {
+        const key = `efc_completed_week_topics_${user.userId}`;
+        localStorage.setItem(key, JSON.stringify(completedWeekTopics));
+      } catch (err) {
+        console.warn("Failed to save completed week topics:", err);
+      }
+    }
+  }, [completedWeekTopics, user?.userId]);
+
   // Progression path math
   const userXp = user?.xp || 0;
   const getStageForXp = (xp: number) => {
@@ -84,7 +189,25 @@ export const LearningHub: React.FC<LearningHubProps> = ({ user, onSelectPrompt, 
   useEffect(() => {
     async function loadCustomLessons() {
       try {
-        const list = await getLessons();
+        let list = await getLessons();
+        
+        // Merge offline downloaded custom lessons in case of network issues
+        try {
+          const storedData = localStorage.getItem("efc_downloaded_lessons_data");
+          if (storedData) {
+            const parsedData = JSON.parse(storedData);
+            const downloadedLessons = Object.values(parsedData) as Lesson[];
+            const existingIds = new Set(list.map(l => l.id));
+            downloadedLessons.forEach(dl => {
+              if (!existingIds.has(dl.id)) {
+                list.push(dl);
+              }
+            });
+          }
+        } catch (err) {
+          console.warn("Failed to merge offline downloaded lessons:", err);
+        }
+
         // Filter out pending lessons so only verified/approved ones are shown to students
         const approved = list.filter(l => l.status !== "pending");
         setCustomLessons(approved);
@@ -131,9 +254,12 @@ export const LearningHub: React.FC<LearningHubProps> = ({ user, onSelectPrompt, 
   };
 
   // Filter custom lessons
-  const filteredCustomLessons = customLessons.filter(
-    (l) => activeCustomCategory === "all" || l.category === activeCustomCategory
-  );
+  const filteredCustomLessons = customLessons.filter((l) => {
+    if (activeCustomCategory === "downloaded") {
+      return downloadedLessonIds.includes(l.id);
+    }
+    return activeCustomCategory === "all" || l.category === activeCustomCategory;
+  });
 
   // Handle topic completion toggle
   const toggleTopicCompleted = (moduleId: string, topic: string) => {
@@ -1588,6 +1714,7 @@ export const LearningHub: React.FC<LearningHubProps> = ({ user, onSelectPrompt, 
               <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5 lg:grid-cols-1">
                 {[
                   { id: "all", label: "All Custom Lessons" },
+                  { id: "downloaded", label: "Downloaded Offline" },
                   { id: "grammar", label: "Grammar Core" },
                   { id: "vocabulary", label: "Vocabulary Lists" },
                   { id: "challenge", label: "Speaking Challenges" },
@@ -1641,11 +1768,18 @@ export const LearningHub: React.FC<LearningHubProps> = ({ user, onSelectPrompt, 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
                           <div className="text-xs font-bold text-slate-850 truncate">{lesson.title}</div>
-                          {completedLessonIds.includes(lesson.id) && (
-                            <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded-md uppercase shrink-0">
-                              <Check className="h-2.5 w-2.5" /> Done
-                            </span>
-                          )}
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            {completedLessonIds.includes(lesson.id) && (
+                              <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded-md uppercase shrink-0">
+                                <Check className="h-2.5 w-2.5" /> Done
+                              </span>
+                            )}
+                            {downloadedLessonIds.includes(lesson.id) && (
+                              <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold text-blue-700 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded-md uppercase shrink-0">
+                                <Cloud className="h-2.5 w-2.5" /> Saved
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-[10px] font-bold text-slate-400 capitalize">{lesson.category}</span>
@@ -1679,10 +1813,31 @@ export const LearningHub: React.FC<LearningHubProps> = ({ user, onSelectPrompt, 
                       {selectedCustomLesson.title}
                     </h2>
                   </div>
-                  <div>
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border ${getDifficultyBadgeColor(selectedCustomLesson.difficultyLevel)}`}>
                       {selectedCustomLesson.difficultyLevel}
                     </span>
+                    <button
+                      onClick={() => handleToggleDownloadLesson(selectedCustomLesson)}
+                      className={`inline-flex items-center gap-1.5 text-[10px] font-extrabold px-3 py-1.5 rounded-full border transition-all cursor-pointer ${
+                        downloadedLessonIds.includes(selectedCustomLesson.id)
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                          : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 shadow-sm"
+                      }`}
+                      title={downloadedLessonIds.includes(selectedCustomLesson.id) ? "Delete downloaded copy" : "Save this lesson for reading offline"}
+                    >
+                      {downloadedLessonIds.includes(selectedCustomLesson.id) ? (
+                        <>
+                          <Check className="h-3 w-3 text-emerald-600 shrink-0" />
+                          <span>Saved Offline</span>
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-3 w-3 shrink-0 animate-bounce" style={{ animationDuration: '2s' }} />
+                          <span>Save Offline</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
 

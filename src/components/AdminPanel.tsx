@@ -12,7 +12,8 @@ import {
   BarChart2,
   Calendar,
   Send,
-  Trash
+  Trash,
+  Trophy
 } from "lucide-react";
 import {
   UserProfile,
@@ -41,7 +42,8 @@ import {
   uploadImageToCloudinary,
   isAdminEmail,
   getLessons,
-  approveLesson
+  approveLesson,
+  getWeeklyXp
 } from "../firebase-utils";
 import { useToast } from "./Toast";
 
@@ -817,6 +819,75 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ user, logoUrl = "", onLo
                 </div>
               </div>
             )}
+
+            {/* Top Weekly Learners Quick-Pin Card Deck */}
+            <div className="bg-gradient-to-br from-amber-500/5 to-yellow-500/5 border border-amber-250/50 rounded-2xl p-6 space-y-4">
+              <div>
+                <h3 className="text-sm font-extrabold text-amber-900 tracking-tight flex items-center gap-2">
+                  <Trophy className="h-4.5 w-4.5 text-amber-600 fill-amber-500/15" />
+                  Top Weekly Learners (Pin Candidates)
+                </h3>
+                <p className="text-[11px] text-amber-700 leading-normal mt-0.5">
+                  These students have accumulated the most XP over the last 7 days. Pin them to the EFC homepage to display them to all visitors!
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {usersList
+                  .filter((u) => !u.role || u.role === "student")
+                  .map((u) => ({ ...u, weeklyXpVal: getWeeklyXp(u) }))
+                  .sort((a, b) => b.weeklyXpVal - a.weeklyXpVal)
+                  .slice(0, 3)
+                  .map((usr, idx) => {
+                    const isPinned = usr.weeklySpotlight;
+                    return (
+                      <div key={usr.userId} className="bg-white rounded-xl border border-slate-150 p-4 flex flex-col justify-between shadow-xs relative overflow-hidden">
+                        <div className="absolute top-0 right-0 bg-amber-500/10 rounded-bl-lg px-2 py-0.5 text-[9px] font-extrabold text-amber-700 font-mono">
+                          #{idx + 1} This Week
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="h-8 w-8 rounded-full bg-slate-100 text-slate-700 font-extrabold flex items-center justify-center text-xs">
+                              {usr.name.substring(0, 2).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-slate-800 line-clamp-1">{usr.name}</div>
+                              <div className="text-[10px] text-slate-400 truncate max-w-[150px]">{usr.school}</div>
+                            </div>
+                          </div>
+                          <div className="flex justify-between items-center text-xs border-t border-slate-100/50 pt-2 font-mono">
+                            <span className="text-slate-500 font-sans font-medium text-[10px] uppercase tracking-wide">Recent Milestones</span>
+                            <span className="font-extrabold text-amber-600">{usr.weeklyXpVal} XP</span>
+                          </div>
+                        </div>
+                        <div className="pt-3">
+                          {isPinned ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSpotlight(usr.userId, usr.name)}
+                              className="w-full text-center text-[10px] font-extrabold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-100 py-1.5 rounded-lg transition"
+                            >
+                              Unpin from Homepage ✕
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSpotlightUser(usr);
+                                setSpotlightReasonText(`${usr.name} topped our weekly academic standings this week with an exceptional milestone of ${usr.weeklyXpVal} XP earned! Connect with them to share speaking, listening, and debating techniques.`);
+                                setSpotlightWeekText(`Week of ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`);
+                              }}
+                              className="w-full text-center text-[10px] font-extrabold text-slate-900 bg-amber-100 hover:bg-amber-200 border border-amber-250 py-1.5 rounded-lg transition cursor-pointer active:scale-95 shadow-sm"
+                            >
+                              Pin to Homepage 👑
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
 
             {/* Active Classroom Roster Table with Search */}
             <div className="rounded-2xl border border-slate-100 bg-white p-6 sleek-shadow space-y-4">
