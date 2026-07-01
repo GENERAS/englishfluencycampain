@@ -28,7 +28,9 @@ import {
   EnglishLevel,
   Founder,
   LessonTracking,
-  InAppNotification
+  InAppNotification,
+  ListeningPractice,
+  ListeningSubmission
 } from "./types";
 import { INITIAL_LESSONS, INITIAL_DEBATES } from "./seed";
 
@@ -66,12 +68,12 @@ async function fetchWithFallback<T>(
 
 interface PendingSyncItem {
   id: string;
-  type: "writing" | "speaking";
+  type: "writing" | "speaking" | "listening";
   data: any;
   timestamp: string;
 }
 
-export function queueOfflineSubmission(type: "writing" | "speaking", data: any) {
+export function queueOfflineSubmission(type: "writing" | "speaking" | "listening", data: any) {
   const queueStr = localStorage.getItem("efc_offline_sync_queue") || "[]";
   try {
     const queue = JSON.parse(queueStr) as PendingSyncItem[];
@@ -141,6 +143,23 @@ export async function syncPendingSubmissions(userId: string): Promise<number> {
           likesCount: 0,
           likes: [],
           transcript
+        });
+        syncCount++;
+      } else if (item.type === "listening") {
+        const { id, practiceId, practiceTitle, youtubeUrl, userId: itemUserId, userName, submissionType, textResponse, audioUrl, transcript } = item.data;
+        await setDoc(doc(db, "listeningSubmissions", id), {
+          id,
+          practiceId,
+          practiceTitle,
+          youtubeUrl,
+          userId: itemUserId,
+          userName,
+          submissionType,
+          textResponse: textResponse || "",
+          audioUrl: audioUrl || "",
+          transcript: transcript || "",
+          timestamp: item.timestamp,
+          status: "pending"
         });
         syncCount++;
       }
@@ -2272,5 +2291,167 @@ export async function uploadPdfFile(file: File): Promise<string> {
     reader.onerror = (err) => reject(new Error("Failed to encode PDF to base64"));
   });
 }
+
+// LISTENING PRACTICE LESSONS PERSISTENCE
+
+export async function createListeningPractice(
+  practice: Omit<ListeningPractice, "id" | "createdAt">
+): Promise<string> {
+  const id = "listen_practice_" + Math.random().toString(36).substr(2, 9);
+  const newPractice: ListeningPractice = {
+    ...practice,
+    id,
+    createdAt: new Date().toISOString()
+  };
+
+  if (!practice.createdBy.startsWith("demo_")) {
+    try {
+      await setDoc(doc(db, "listeningPractices", id), newPractice);
+    } catch (err) {
+      console.warn("Failed to create listening practice in Firestore:", err);
+    }
+  }
+
+  // Always save locally in localStorage as fallback/cache
+  const cachedStr = localStorage.getItem("efc_listening_practices") || "[]";
+  try {
+    const cached = JSON.parse(cachedStr) as ListeningPractice[];
+    cached.unshift(newPractice);
+    localStorage.setItem("efc_listening_practices", JSON.stringify(cached));
+  } catch (e) {
+    console.warn("Failed to cache listening practice locally", e);
+  }
+
+  return id;
+}
+
+export async function getListeningPractices(): Promise<ListeningPractice[]> {
+  // Try online first
+  try {
+    const q = query(collection(db, "listeningPractices"), orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(q);
+    const practices: ListeningPractice[] = [];
+    snapshot.forEach((doc) => {
+      practices.push(doc.data() as ListeningPractice);
+    });
+
+    if (practices.length > 0) {
+      localStorage.setItem("efc_listening_practices", JSON.stringify(practices));
+      return practices;
+    }
+  } catch (err) {
+    console.warn("getListeningPractices failed online, reading local cache", err);
+  }
+
+  // Fallback to cache
+  const cachedStr = localStorage.getItem("efc_listening_practices") || "[]";
+  try {
+    return JSON.parse(cachedStr) as ListeningPractice[];
+  } catch {
+    return [];
+  }
+}
+
+export async function submitListeningResponse(
+  submission: Omit<ListeningSubmission, "id" | "timestamp" | "status">
+): Promise<string> {
+  const id = "listen_submit_" + Math.random().toString(36).substr(2, 9);
+  const newSubmission: ListeningSubmission = {
+    ...submission,
+    id,
+    timestamp: new Date().toISOString(),
+    status: "pending"
+  };
+
+  if (!submission.userId.startsWith("demo_")) {
+    try {
+      await setDoc(doc(db, "listeningSubmissions", id), newSubmission);
+    } catch (err) {
+      console.warn("Failed to save listening response to Firestore online, queueing offline...", err);
+      queueOfflineSubmission("listening", newSubmission);
+    }
+  }
+
+  // Also cache locally
+  const cachedStr = localStorage.getItem("efc_listening_submissions") || "[]";
+  try {
+    const cached = JSON.parse(cachedStr) as ListeningSubmission[];
+    cached.unshift(newSubmission);
+    localStorage.setItem("efc_listening_submissions", JSON.stringify(cached));
+  } catch (e) {
+    console.warn("Failed to cache listening response locally", e);
+  }
+
+  return id;
+}
+
+export async function getListeningSubmissions(userId?: string): Promise<ListeningSubmission[]> {
+  try {
+    let q = query(collection(db, "listeningSubmissions"), orderBy("timestamp", "desc"));
+    if (userId) {
+      q = query(
+        collection(db, "listeningSubmissions"),
+        where("userId", "==", userId),
+        orderBy("timestamp", "desc")
+      );
+    }
+    const snapshot = await getDocs(q);
+    const submissions: ListeningSubmission[] = [];
+    snapshot.forEach((doc) => {
+      submissions.push(doc.data() as ListeningSubmission);
+    });
+
+    if (submissions.length > 0) {
+      if (userId) {
+        localStorage.setItem(`efc_listening_subs_${userId}`, JSON.stringify(submissions));
+      } else {
+        localStorage.setItem("efc_listening_subs_all", JSON.stringify(submissions));
+      }
+      return submissions;
+    }
+  } catch (err) {
+    console.warn("getListeningSubmissions failed online, reading cache", err);
+  }
+
+  const cachedKey = userId ? `efc_listening_subs_${userId}` : "efc_listening_subs_all";
+  const cachedStr = localStorage.getItem(cachedKey) || "[]";
+  try {
+    return JSON.parse(cachedStr) as ListeningSubmission[];
+  } catch {
+    return [];
+  }
+}
+
+export async function reviewListeningSubmission(
+  submissionId: string,
+  updates: Partial<ListeningSubmission>
+): Promise<void> {
+  try {
+    const docRef = doc(db, "listeningSubmissions", submissionId);
+    await updateDoc(docRef, updates);
+  } catch (err) {
+    console.warn("reviewListeningSubmission failed online", err);
+  }
+
+  // Update in local caches
+  const allKeys = ["efc_listening_subs_all"];
+  const localKeys = Object.keys(localStorage).filter(k => k.startsWith("efc_listening_subs_"));
+  allKeys.push(...localKeys);
+
+  for (const key of allKeys) {
+    const cachedStr = localStorage.getItem(key);
+    if (cachedStr) {
+      try {
+        const cached = JSON.parse(cachedStr) as ListeningSubmission[];
+        const index = cached.findIndex(s => s.id === submissionId);
+        if (index !== -1) {
+          cached[index] = { ...cached[index], ...updates };
+          localStorage.setItem(key, JSON.stringify(cached));
+        }
+      } catch {}
+    }
+  }
+}
+
 
 

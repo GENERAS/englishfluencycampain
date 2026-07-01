@@ -24,6 +24,7 @@ import Navbar from "./components/Navbar";
 import CampaignLanding from "./components/CampaignLanding";
 import LearningHub from "./components/LearningHub";
 import PracticeArena from "./components/PracticeArena";
+import ListeningPractice from "./components/ListeningPractice";
 import CommunityDebate from "./components/CommunityDebate";
 import AdminPanel from "./components/AdminPanel";
 import TeacherPanel from "./components/TeacherPanel";
@@ -529,6 +530,31 @@ function AppContent() {
                   <h2 className="text-lg font-bold">Sign In Required</h2>
                   <p className="text-sm text-slate-500">
                     You must join the campaign or login with your student account to submit speaking and writing practices.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setIsSignUp(false);
+                      setShowAuthDialog(true);
+                    }}
+                    className="rounded-xl bg-blue-600 text-white font-bold px-5 py-2.5 hover:bg-blue-500 shadow-lg shadow-blue-100"
+                  >
+                    Go to Authentication
+                  </button>
+                </div>
+              )
+            )}
+
+            {activeTab === "listening" && (
+              userProfile ? (
+                <ListeningPractice
+                  user={userProfile}
+                  onUserUpdate={setUserProfile}
+                />
+              ) : (
+                <div className="mx-auto max-w-md text-center py-24 px-4 space-y-4">
+                  <h2 className="text-lg font-bold">Sign In Required</h2>
+                  <p className="text-sm text-slate-500">
+                    You must join the campaign or login with your student account to take secure listening comprehension tests.
                   </p>
                   <button
                     onClick={() => {

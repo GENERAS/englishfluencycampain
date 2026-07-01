@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { BookOpen, Award, Users, ShieldAlert, User, LogOut, Globe, FileText, Mic, Menu, X, Check, Flame, GraduationCap, Sparkles, ChevronLeft, ChevronRight, Cloud, CloudOff, Database, Wifi, WifiOff } from "lucide-react";
+import { BookOpen, Award, Users, ShieldAlert, User, LogOut, Globe, FileText, Mic, Menu, X, Check, Flame, GraduationCap, Sparkles, ChevronLeft, ChevronRight, Cloud, CloudOff, Database, Wifi, WifiOff, Youtube } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { UserProfile } from "../types";
 import { EFCLogo } from "./EFCLogo";
@@ -205,6 +205,15 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <Mic className="h-4.5 w-4.5 shrink-0" />
             {!isCollapsed && <span>Practice Arena</span>}
+          </button>
+
+          <button
+            onClick={() => setActiveTab("listening")}
+            className={getSidebarBtnClass("listening")}
+            title="Listening Hub"
+          >
+            <Youtube className="h-4.5 w-4.5 shrink-0" />
+            {!isCollapsed && <span>Listening Hub</span>}
           </button>
 
           <button
@@ -693,6 +702,18 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                   <Mic className="h-4 w-4 text-slate-400" />
                   <span>Practice Arena</span>
+                </button>
+
+                <button
+                  onClick={() => handleMobileNavClick("listening")}
+                  className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 text-xs font-bold transition text-left ${
+                    activeTab === "listening"
+                      ? "bg-blue-50 text-blue-600 border border-blue-100"
+                      : "text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <Youtube className="h-4 w-4 text-slate-400" />
+                  <span>Listening Hub</span>
                 </button>
 
                 <button

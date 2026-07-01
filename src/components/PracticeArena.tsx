@@ -21,7 +21,8 @@ import {
   Flame,
   User,
   TrendingUp,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCw
 } from "lucide-react";
 import { UserProfile, WritingSubmission, SpeakingSubmission } from "../types";
 import { submitWriting, getWritings, submitSpeaking, getSpeakingSubmissions, uploadAudio, completeDailyTask, submitSpeakingReview } from "../firebase-utils";
@@ -43,6 +44,118 @@ export const PracticeArena: React.FC<PracticeArenaProps> = ({
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<"writing" | "speaking">(initialType);
   const { showToast } = useToast();
+
+  // AI Practice Coach States
+  const [coachQuestion, setCoachQuestion] = useState("");
+  const [isAskingCoach, setIsAskingCoach] = useState(false);
+  const [coachChatHistory, setCoachChatHistory] = useState<Array<{
+    sender: "student" | "coach";
+    message: string;
+    isWarning?: boolean;
+    verificationChallenge?: string;
+  }>>([
+    {
+      sender: "coach",
+      message: "Hello! I am your EFC Rwanda AI Practice Coach. If you meet any complex words, phrases, or have grammar questions, ask me here. But remember: do not cheat! I will not write your answers for you."
+    }
+  ]);
+  const [activeChallenge, setActiveChallenge] = useState<string | null>(null);
+  const [challengeAnswer, setChallengeAnswer] = useState("");
+  const [isValidatingChallenge, setIsValidatingChallenge] = useState(false);
+
+  const handleAskCoach = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!coachQuestion.trim()) return;
+
+    const userMsg = coachQuestion.trim();
+    setCoachQuestion("");
+
+    // Append student message
+    setCoachChatHistory(prev => [...prev, { sender: "student", message: userMsg }]);
+    setIsAskingCoach(true);
+
+    try {
+      const activePrompt = activeSubTab === "writing" ? (writeTitle || "Active Writing Prompt") : speakingPrompt;
+      const res = await fetch("/api/practice/coach", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: userMsg,
+          promptText: activePrompt,
+          submissionType: activeSubTab
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (data.isCheatingDetected) {
+          // Cheating flagged! Append response as warning and trigger active challenge
+          setCoachChatHistory(prev => [...prev, { 
+            sender: "coach", 
+            message: data.coachResponse || "Cheat Warning! I detected you might be attempting to bypass the practice yourself. I cannot do the work for you.",
+            isWarning: true,
+            verificationChallenge: data.challengeQuestion
+          }]);
+          if (data.challengeQuestion) {
+            setActiveChallenge(data.challengeQuestion);
+            setChallengeAnswer("");
+            showToast("Anti-Cheat Verification Triggered! Please verify yourself to continue.", "error");
+          }
+        } else {
+          setCoachChatHistory(prev => [...prev, { sender: "coach", message: data.coachResponse }]);
+        }
+      } else {
+        throw new Error(data.error || "Failed to query AI Coach");
+      }
+    } catch (err: any) {
+      console.error(err);
+      setCoachChatHistory(prev => [...prev, { sender: "coach", message: "Sorry, I had trouble connecting. Please try again." }]);
+    } finally {
+      setIsAskingCoach(false);
+    }
+  };
+
+  const handleVerifyChallenge = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeChallenge || !challengeAnswer.trim()) return;
+
+    setIsValidatingChallenge(true);
+    try {
+      const res = await fetch("/api/practice/verify-challenge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          challenge: activeChallenge,
+          answer: challengeAnswer.trim()
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (data.isApproved) {
+          setCoachChatHistory(prev => [...prev, { 
+            sender: "coach", 
+            message: `✅ Verification Successful! ${data.feedback || "You've successfully verified you are actively practicing. Thank you!"}` 
+          }]);
+          setActiveChallenge(null);
+          setChallengeAnswer("");
+          showToast("Verification Approved! You can ask the Coach again.", "success");
+        } else {
+          setCoachChatHistory(prev => [...prev, { 
+            sender: "coach", 
+            message: `❌ Verification Failed. ${data.feedback || "Please provide a genuine response to the challenge to unlock the coach."}`,
+            isWarning: true
+          }]);
+          showToast("Verification Rejected. Please try again with a genuine attempt.", "error");
+        }
+      } else {
+        throw new Error(data.error || "Verification failed");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast("Could not verify. Please try again.", "error");
+    } finally {
+      setIsValidatingChallenge(false);
+    }
+  };
 
 
   // Writing Form State
@@ -934,6 +1047,109 @@ ${aiResult.overallFeedback}
 
         {/* Practice History/Performance Panel (Col 4) */}
         <div className="lg:col-span-4 space-y-4">
+
+          {/* EFC ANTI-CHEAT AI PRACTICE COACH */}
+          <div className="rounded-2xl border border-blue-100 bg-gradient-to-b from-blue-50/40 to-white p-4 shadow-sm space-y-3">
+            <div className="flex items-center justify-between border-b border-blue-50 pb-2">
+              <div className="flex items-center gap-1.5">
+                <div className="h-7 w-7 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
+                  <Sparkles className="h-4 w-4 animate-pulse" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">AI Practice Coach</h4>
+                  <p className="text-[9px] text-slate-400 font-bold">ANTI-CHEAT ENABLED</p>
+                </div>
+              </div>
+              <span className="text-[9px] font-extrabold bg-blue-50 border border-blue-100 text-blue-700 px-2 py-0.5 rounded-full uppercase tracking-widest">PROCTOR ACTIVE</span>
+            </div>
+
+            {/* Chat Messages */}
+            <div className="max-h-56 overflow-y-auto space-y-2 pr-1 text-xs">
+              {coachChatHistory.map((chat, idx) => (
+                <div key={idx} className={`rounded-xl p-2.5 ${
+                  chat.sender === "student" 
+                    ? "bg-slate-100 text-slate-800 ml-6" 
+                    : chat.isWarning 
+                      ? "bg-rose-50 border border-rose-100 text-rose-800" 
+                      : "bg-blue-50/50 border border-blue-50 text-slate-700"
+                }`}>
+                  <div className="font-extrabold text-[9px] uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                    <span>{chat.sender === "student" ? "You" : "Gemini Coach"}</span>
+                    {chat.isWarning && <span className="text-rose-600 font-black">⚠️ PROCTOR WARNING</span>}
+                  </div>
+                  <p className="leading-relaxed whitespace-pre-wrap">{chat.message}</p>
+                </div>
+              ))}
+              {isAskingCoach && (
+                <div className="rounded-xl p-2.5 bg-blue-50/30 border border-dashed border-blue-200 text-slate-500 animate-pulse flex items-center gap-2">
+                  <RefreshCw className="h-3 w-3 animate-spin text-blue-500" />
+                  <span>Coach is analyzing query...</span>
+                </div>
+              )}
+            </div>
+
+            {/* Verification Challenge Trigger */}
+            {activeChallenge ? (
+              <form onSubmit={handleVerifyChallenge} className="bg-rose-50 border border-rose-100 rounded-xl p-3 space-y-2">
+                <div className="flex items-start gap-1.5 text-rose-800">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <div className="text-[10px] font-bold">
+                    Verification Challenge Issued!
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-600 font-semibold leading-relaxed">
+                  To verify you are actively thinking and not relying on shortcuts, please complete the challenge below:
+                </p>
+                <div className="bg-white border border-rose-200 rounded-lg p-2 text-[11px] font-extrabold text-slate-800 italic">
+                  "{activeChallenge}"
+                </div>
+                <input
+                  type="text"
+                  placeholder="Type your challenge response..."
+                  value={challengeAnswer}
+                  onChange={(e) => setChallengeAnswer(e.target.value)}
+                  disabled={isValidatingChallenge}
+                  className="w-full text-xs rounded-lg border border-slate-200 px-3 py-2 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none"
+                />
+                <button
+                  type="submit"
+                  disabled={isValidatingChallenge || !challengeAnswer.trim()}
+                  className="w-full rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-[10px] py-2 transition active:scale-95 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  {isValidatingChallenge ? (
+                    <>
+                      <RefreshCw className="h-3 w-3 animate-spin" />
+                      <span>Validating Response...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-3.5 w-3.5" />
+                      <span>Submit Verification</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            ) : (
+              /* Regular Question Form */
+              <form onSubmit={handleAskCoach} className="flex gap-1.5">
+                <input
+                  type="text"
+                  placeholder="Ask about a complex word or grammar..."
+                  value={coachQuestion}
+                  onChange={(e) => setCoachQuestion(e.target.value)}
+                  disabled={isAskingCoach}
+                  className="flex-1 text-xs rounded-xl border border-slate-200 px-3 py-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                />
+                <button
+                  type="submit"
+                  disabled={isAskingCoach || !coachQuestion.trim()}
+                  className="rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-3 py-2 transition active:scale-95 disabled:opacity-40 cursor-pointer"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                </button>
+              </form>
+            )}
+          </div>
           
           {/* 1. Member Profile & Progress Summary Card */}
           <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm space-y-4">

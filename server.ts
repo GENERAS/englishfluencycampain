@@ -491,6 +491,199 @@ Total Flagged Reports: ${context?.reportsCount || 0}
   }
 });
 
+// AI PRACTICE COACH / COGNITIVE COIL ANTI-CHEAT HELPER
+app.post("/api/practice/coach", async (req, res) => {
+  try {
+    const { question, promptText, submissionType } = req.body;
+    if (!question) {
+      return res.status(400).json({ error: "question is required" });
+    }
+
+    const ai = getGeminiClient();
+    const systemInstruction = `You are the Practice Arena AI Coach for EFC Rwanda.
+Your goal is to help students learn English vocabulary, understand complex words, grammar, and expressions.
+However, you MUST pay attention to CHEATING! 
+If a student asks you to write their submission, translate their full answer, or generate a complete speech/writing template for their active prompt ("${promptText || 'N/A'}"), you MUST flag it.
+
+Analyze if the student is trying to cheat (i.e. bypass practicing the task themselves).
+Return a JSON object with this exact structure:
+{
+  "isCheatingDetected": boolean, // true if they ask you to write the text, translate their direct answer, or bypass their active task
+  "coachResponse": string, // A helpful, positive explanation, or if they tried to cheat, a friendly reminder to practice themselves and an educational hint instead
+  "challengeQuestion": string // If they tried to cheat, a quick interactive verification or vocabulary question to challenge them (e.g. "To verify your focus, can you use the word 'conserve' in a short sentence?"). If no cheating, keep this empty.
+}`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: `Student is working on a ${submissionType || 'speaking/writing'} task. 
+Prompt: "${promptText || 'N/A'}"
+Student asks: "${question}"`,
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            isCheatingDetected: { type: Type.BOOLEAN },
+            coachResponse: { type: Type.STRING },
+            challengeQuestion: { type: Type.STRING }
+          },
+          required: ["isCheatingDetected", "coachResponse", "challengeQuestion"]
+        }
+      }
+    });
+
+    const result = JSON.parse(response.text || "{}");
+    return res.json(result);
+  } catch (err: any) {
+    console.error("Practice coach API error:", err);
+    return res.status(500).json({ error: err.message || "Failed to query AI coach" });
+  }
+});
+
+// AI PRACTICE COACH VERIFY CHALLENGE ENDPOINT
+app.post("/api/practice/verify-challenge", async (req, res) => {
+  try {
+    const { challenge, answer } = req.body;
+    if (!challenge) {
+      return res.status(400).json({ error: "challenge is required" });
+    }
+
+    const ai = getGeminiClient();
+    const systemInstruction = `You are EFC Rwanda's Anti-Cheat Proctor.
+The student was given this interactive verification challenge to prove they are paying attention and not cheating: "${challenge}".
+They answered: "${answer || ''}".
+Decide if their response is a reasonable, genuine attempt that solves the challenge (e.g., if they were asked to use a word in a sentence, did they do it reasonably?).
+Return a JSON object with this exact structure:
+{
+  "isApproved": boolean, // true if the response is a correct or genuine attempt, false if it's nonsense, blank, or an attempt to bypass
+  "feedback": string // A supportive, brief confirmation or a message explaining why they need to try again
+}`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: `Challenge: "${challenge}"
+Student Answer: "${answer || ''}"`,
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            isApproved: { type: Type.BOOLEAN },
+            feedback: { type: Type.STRING }
+          },
+          required: ["isApproved", "feedback"]
+        }
+      }
+    });
+
+    const result = JSON.parse(response.text || "{}");
+    return res.json(result);
+  } catch (err: any) {
+    console.error("Verify challenge error:", err);
+    return res.status(500).json({ error: err.message || "Failed to verify challenge" });
+  }
+});
+
+// AI LISTENING PRACTICE LESSON GENERATOR
+app.post("/api/listening/generate-questions", async (req, res) => {
+  try {
+    const { youtubeUrl, topicOrDescription } = req.body;
+    if (!youtubeUrl) {
+      return res.status(400).json({ error: "youtubeUrl is required" });
+    }
+
+    const ai = getGeminiClient();
+    const systemInstruction = `You are an AI Curriculum Designer for EFC Rwanda. 
+Prepare a high-quality listening practice lesson based on the provided video description or topic: "${topicOrDescription || 'General English listening podcast'}".
+The video is hosted on YouTube: "${youtubeUrl}".
+Choose if students should answer by "writing" an essay/summary or by "speaking" their answers (depending on what makes the lesson most effective).
+Create 3 specific, deep listening comprehension questions based on the topic.
+
+Return a JSON object with this exact structure:
+{
+  "title": string, // Catchy, relevant title (e.g., "Eco-Tourism in Akagera: Wildlife Recovery")
+  "instructions": string, // Detailed instructions on what to listen for (e.g., "Watch the documentary on Rwanda's conservation success. Pay attention to how community incentives reduced poaching.")
+  "questionText": string, // The numbered questions students must answer after watching
+  "submissionType": string // MUST be either "writing" or "speaking"
+}`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: `Create a listening lesson for: "${topicOrDescription || 'General English podcast'}". Video URL: ${youtubeUrl}`,
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            instructions: { type: Type.STRING },
+            questionText: { type: Type.STRING },
+            submissionType: { type: Type.STRING }
+          },
+          required: ["title", "instructions", "questionText", "submissionType"]
+        }
+      }
+    });
+
+    const result = JSON.parse(response.text || "{}");
+    return res.json(result);
+  } catch (err: any) {
+    console.error("Listening generation API error:", err);
+    return res.status(500).json({ error: err.message || "Failed to generate listening lesson" });
+  }
+});
+
+// AI LISTENING SUBMISSION GRADING/REVIEWER
+app.post("/api/listening/review", async (req, res) => {
+  try {
+    const { practiceTitle, questionText, submissionType, textResponse, transcript, audioUrl } = req.body;
+
+    const ai = getGeminiClient();
+    const systemInstruction = `You are an expert English language examiner reviewing a Listening comprehension submission for the lesson: "${practiceTitle}".
+Questions asked: "${questionText}".
+Submission type: "${submissionType}".
+Evaluate how well the student listened and responded to the questions. Give actionable, supportive coaching feedback on grammar, comprehension, and vocabulary.
+
+Return a JSON object with this exact structure:
+{
+  "score": number, // out of 100, provide a fair grade
+  "aiReview": string // Detailed feedback paragraph. Explicitly highlight strong points and areas where they can improve their listening comprehension or English grammar.
+}`;
+
+    let studentWork = textResponse || "";
+    if (submissionType === "speaking" && transcript) {
+      studentWork = `Speaking Transcript: ${transcript}`;
+    }
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: `Student response: "${studentWork}"
+Questions: "${questionText}"`,
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            score: { type: Type.NUMBER },
+            aiReview: { type: Type.STRING }
+          },
+          required: ["score", "aiReview"]
+        }
+      }
+    });
+
+    const result = JSON.parse(response.text || "{}");
+    return res.json(result);
+  } catch (err: any) {
+    console.error("Listening review API error:", err);
+    return res.status(500).json({ error: err.message || "Failed to analyze listening submission" });
+  }
+});
+
 async function startServer() {
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

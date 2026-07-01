@@ -105,6 +105,39 @@ export interface SpeakingSubmission {
   transcript?: string;
 }
 
+export interface ListeningPractice {
+  id: string;
+  title: string;
+  youtubeUrl: string;
+  difficultyLevel: EnglishLevel;
+  instructions: string;
+  questionText: string;
+  submissionType: "writing" | "speaking";
+  createdAt: string;
+  createdBy: string;
+  createdByTeacherName: string;
+}
+
+export interface ListeningSubmission {
+  id: string;
+  practiceId: string;
+  practiceTitle: string;
+  youtubeUrl: string;
+  userId: string;
+  userName: string;
+  submissionType: "writing" | "speaking";
+  textResponse?: string;
+  audioUrl?: string;
+  transcript?: string;
+  timestamp: string;
+  status: "pending" | "reviewed";
+  score?: number;
+  aiReview?: string;
+  adminReview?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+}
+
 export interface Lesson {
   id: string;
   title: string;
