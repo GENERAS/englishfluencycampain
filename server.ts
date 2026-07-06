@@ -2,7 +2,7 @@ import express from "express";
 import path from "path";
 import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, Modality } from "@google/genai";
 
 // Load environment variables
 dotenv.config();
@@ -108,7 +108,7 @@ You must return a response in strict JSON format that matches the following Type
 Do not include any markdown backticks or extra text, output ONLY valid JSON.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       contents: contents,
       config: {
         systemInstruction,
@@ -199,7 +199,7 @@ You must return a response in strict JSON format that matches the following stru
 The feedback should be human-like, encouraging, and highly specific to the content. Do not output anything other than valid JSON.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       contents: `Please evaluate this student submission of type "${type || "essay"}" with title "${title || "Untitled"}":\n\n"${content}"`,
       config: {
         systemInstruction,
@@ -289,7 +289,7 @@ You must return a response in strict JSON format matching this structure:
 Do not output anything other than valid JSON.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       contents: contents,
       config: {
         systemInstruction,
@@ -360,7 +360,7 @@ You must return a response in strict JSON format matching this exact structure:
 Do not output anything other than valid JSON. Make the question highly relevant to professional development, communication, or volunteer campaigns where possible.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       contents: `Generate a multiple choice challenge for the path "${challengePath}" with current level indicator "${currentLevel || "intermediate"}".`,
       config: {
         systemInstruction,
@@ -471,7 +471,7 @@ Total Flagged Reports: ${context?.reportsCount || 0}
     const fullUserPrompt = `${contextString}\n\nUser Query: ${lastMessage.content}`;
 
     const chat = ai.chats.create({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       config: {
         systemInstruction,
         temperature: 0.7,
@@ -514,7 +514,7 @@ Return a JSON object with this exact structure:
 }`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       contents: `Student is working on a ${submissionType || 'speaking/writing'} task. 
 Prompt: "${promptText || 'N/A'}"
 Student asks: "${question}"`,
@@ -561,7 +561,7 @@ Return a JSON object with this exact structure:
 }`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       contents: `Challenge: "${challenge}"
 Student Answer: "${answer || ''}"`,
       config: {
@@ -590,7 +590,9 @@ Student Answer: "${answer || ''}"`,
 app.post("/api/listening/generate-questions", async (req, res) => {
   try {
     const { youtubeUrl, audioUrl, topicOrDescription } = req.body;
+    console.log("[generate-questions] Request received with body:", { youtubeUrl, audioUrl, topicOrDescription });
     if (!youtubeUrl && !audioUrl) {
+      console.warn("[generate-questions] Missing media source (youtubeUrl or audioUrl)");
       return res.status(400).json({ error: "Either youtubeUrl or audioUrl is required" });
     }
 
@@ -610,8 +612,9 @@ Return a JSON object with this exact structure:
   "submissionType": string // MUST be either "writing" or "speaking"
 }`;
 
+    console.log("[generate-questions] Call Gemini API using gemini-3.5-flash...");
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       contents: `Create a listening lesson for: "${topicOrDescription || 'General English podcast'}". Sourced from: ${mediaSource}`,
       config: {
         systemInstruction,
@@ -629,10 +632,12 @@ Return a JSON object with this exact structure:
       }
     });
 
+    console.log("[generate-questions] Gemini API response text:", response.text);
     const result = JSON.parse(response.text || "{}");
+    console.log("[generate-questions] Parsed JSON result successfully:", result);
     return res.json(result);
   } catch (err: any) {
-    console.error("Listening generation API error:", err);
+    console.error("[generate-questions] Error occurred in API:", err);
     return res.status(500).json({ error: err.message || "Failed to generate listening lesson" });
   }
 });
@@ -641,7 +646,9 @@ Return a JSON object with this exact structure:
 app.post("/api/listening/generate-podcast", async (req, res) => {
   try {
     const { topic, difficulty, voiceName } = req.body;
+    console.log("[generate-podcast] Request received with body:", { topic, difficulty, voiceName });
     if (!topic) {
+      console.warn("[generate-podcast] Missing topic parameter");
       return res.status(400).json({ error: "topic is required" });
     }
 
@@ -663,8 +670,9 @@ Return a JSON object with this exact structure:
   "submissionType": string // MUST be either "writing" or "speaking"
 }`;
 
+    console.log("[generate-podcast] Call Gemini API generateContent using gemini-3.5-flash for text script & questions...");
     const textResponse = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       contents: `Generate a full listening lesson and script for topic: "${topic}" at level: "${difficulty || 'Intermediate'}"`,
       config: {
         systemInstruction,
@@ -683,15 +691,17 @@ Return a JSON object with this exact structure:
       }
     });
 
+    console.log("[generate-podcast] Gemini text response text:", textResponse.text);
     const result = JSON.parse(textResponse.text || "{}");
     const scriptText = result.script || "";
 
     if (!scriptText) {
+      console.error("[generate-podcast] Failed to generate script. Result was:", result);
       throw new Error("Failed to generate a script for the podcast.");
     }
 
     // Now, call gemini-3.1-flash-tts-preview to turn this script into speech audio
-    console.log("Generating audio for script using gemini-3.1-flash-tts-preview...");
+    console.log("[generate-podcast] Generating audio for script using gemini-3.1-flash-tts-preview with prebuiltVoice:", voiceName || "Zephyr");
     let audioBase64 = "";
     try {
       const selectedVoice = voiceName || "Zephyr"; // 'Puck', 'Charon', 'Kore', 'Fenrir', 'Zephyr'
@@ -699,7 +709,7 @@ Return a JSON object with this exact structure:
         model: "gemini-3.1-flash-tts-preview",
         contents: [{ parts: [{ text: `Say with clarity, pacing nicely for English learners: ${scriptText}` }] }],
         config: {
-          responseModalities: ["AUDIO"],
+          responseModalities: [Modality.AUDIO],
           speechConfig: {
             voiceConfig: {
               prebuiltVoiceConfig: { voiceName: selectedVoice },
@@ -708,12 +718,16 @@ Return a JSON object with this exact structure:
         },
       });
 
+      console.log("[generate-podcast] TTS Response received, analyzing...");
       const base64Data = ttsResponse.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
       if (base64Data) {
         audioBase64 = `data:audio/mp3;base64,${base64Data}`;
+        console.log("[generate-podcast] TTS audio Base64 generated successfully. Length:", audioBase64.length);
+      } else {
+        console.warn("[generate-podcast] TTS Response had no inline data parts:", ttsResponse.candidates?.[0]?.content?.parts);
       }
     } catch (ttsErr: any) {
-      console.error("TTS generation failed, but script was generated:", ttsErr);
+      console.error("[generate-podcast] TTS generation failed, but script was generated successfully:", ttsErr);
     }
 
     return res.json({
@@ -721,7 +735,7 @@ Return a JSON object with this exact structure:
       audioBase64
     });
   } catch (err: any) {
-    console.error("Podcast generation API error:", err);
+    console.error("[generate-podcast] Podcast generation API error:", err);
     return res.status(500).json({ error: err.message || "Failed to generate podcast" });
   }
 });
@@ -749,7 +763,7 @@ Return a JSON object with this exact structure:
     }
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       contents: `Student response: "${studentWork}"
 Questions: "${questionText}"`,
       config: {

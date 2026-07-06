@@ -408,7 +408,12 @@ function AppContent() {
       }
     } catch (err: any) {
       console.error("Google Authentication failed:", err);
-      if (err.code !== "auth/popup-closed-by-user") {
+      if (err.code === "auth/unauthorized-domain") {
+        const hostname = window.location.hostname;
+        const msg = `Firebase Auth: "${hostname}" is not authorized. Please add this domain to "Authorized domains" in your Firebase Console -> Authentication -> Settings.`;
+        setAuthError(msg);
+        showToast("Firebase unauthorized domain error.", "error");
+      } else if (err.code !== "auth/popup-closed-by-user") {
         setAuthError(err.message || "Google Sign-In failed.");
         showToast("Google Authentication failed.", "error");
       }

@@ -223,6 +223,7 @@ export const ListeningPractice: React.FC<ListeningPracticeProps> = ({ user, onUs
     }
 
     setIsGeneratingAi(true);
+    console.log("[ListeningPractice] handleAiGenerateQuestions triggered. Source type:", sourceType, "Media URL:", mediaUrl);
     try {
       const response = await fetch("/api/listening/generate-questions", {
         method: "POST",
@@ -233,7 +234,20 @@ export const ListeningPractice: React.FC<ListeningPracticeProps> = ({ user, onUs
           topicOrDescription: aiTopicDescription
         })
       });
-      const data = await response.json();
+
+      console.log("[ListeningPractice] generate-questions API status:", response.status, response.statusText);
+      const contentType = response.headers.get("content-type");
+      let data: any;
+
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+        console.log("[ListeningPractice] generate-questions JSON response:", data);
+      } else {
+        const rawText = await response.text();
+        console.error("[ListeningPractice] generate-questions non-JSON response received:", rawText);
+        throw new Error(`Server returned non-JSON response (${response.status}): ${rawText.slice(0, 200)}`);
+      }
+
       if (response.ok) {
         setNewTitle(data.title || "AI Listening Lesson");
         setNewInstructions(data.instructions || "");
@@ -244,7 +258,7 @@ export const ListeningPractice: React.FC<ListeningPracticeProps> = ({ user, onUs
         throw new Error(data.error || "Failed to generate questions");
       }
     } catch (err: any) {
-      console.error(err);
+      console.error("[ListeningPractice] Error generating AI questions:", err);
       showToast(err.message || "Failed to generate AI questions.", "error");
     } finally {
       setIsGeneratingAi(false);
@@ -259,6 +273,7 @@ export const ListeningPractice: React.FC<ListeningPracticeProps> = ({ user, onUs
     }
 
     setIsGeneratingPodcast(true);
+    console.log("[ListeningPractice] handleAiGeneratePodcast triggered with topic:", aiPodcastTopic.trim(), "Difficulty:", newDifficulty, "Voice:", aiVoice);
     try {
       showToast("Designing podcast script and formulating questions...", "info");
       const response = await fetch("/api/listening/generate-podcast", {
@@ -271,7 +286,19 @@ export const ListeningPractice: React.FC<ListeningPracticeProps> = ({ user, onUs
         })
       });
 
-      const data = await response.json();
+      console.log("[ListeningPractice] generate-podcast API status:", response.status, response.statusText);
+      const contentType = response.headers.get("content-type");
+      let data: any;
+
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+        console.log("[ListeningPractice] generate-podcast JSON response:", data);
+      } else {
+        const rawText = await response.text();
+        console.error("[ListeningPractice] generate-podcast non-JSON response received:", rawText);
+        throw new Error(`Server returned non-JSON response (${response.status}): ${rawText.slice(0, 200)}`);
+      }
+
       if (response.ok) {
         setNewTitle(data.title || "AI Listening Podcast");
         setNewInstructions(data.instructions || "");
@@ -292,7 +319,7 @@ export const ListeningPractice: React.FC<ListeningPracticeProps> = ({ user, onUs
         throw new Error(data.error || "Failed to generate podcast");
       }
     } catch (err: any) {
-      console.error("AI Podcast Generation failed:", err);
+      console.error("[ListeningPractice] AI Podcast Generation failed:", err);
       showToast(err.message || "Could not generate AI podcast.", "error");
     } finally {
       setIsGeneratingPodcast(false);
