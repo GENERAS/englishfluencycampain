@@ -324,30 +324,30 @@ export const CampaignLanding: React.FC<CampaignLandingProps> = ({
             <div className="lg:col-span-7 flex flex-col items-start space-y-6">
               <div className="inline-flex items-center gap-1.5 rounded-full badge-blue px-3.5 py-1.5 text-xs font-bold border border-blue-200/50">
                 <Sparkles className="h-3.5 w-3.5" />
-                <span>Empowering 1 Million Students Nationally</span>
+                <span>Learn in 5 seconds: Practice speaking, don't just study grammar rules!</span>
               </div>
               <h1 className="font-sans text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl md:text-6xl leading-[1.1]">
-                Mastering English, <br />
+                Speak English Confidently, <br />
                 <span className="bg-gradient-to-r from-blue-600 via-orange-500 to-purple-600 bg-clip-text text-transparent">
-                  Unlocking the Future.
+                  Don't Just Memorize Rules.
                 </span>
               </h1>
               <p className="max-w-xl text-base text-slate-600 leading-relaxed sm:text-lg">
-                The English Fluency Campaign is a nationwide high-impact program designed for schools to elevate student speaking, writing, and logical debate fluency through structured peer reviews, live database tracking, and certified assessments.
+                Do you want to speak and write English without fear? Our simple campaign lets you record your voice, write fun daily stories, and join friendly school debates to build real confidence.
               </p>
               <div className="flex flex-wrap gap-4 pt-2">
                 <button
                   onClick={onJoinCampaign}
                   className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-500 hover:shadow-blue-200 active:scale-95 cursor-pointer"
                 >
-                  {user ? "Go to My Dashboard" : "Register and Join Campaign"}
+                  {user ? "Go to My Dashboard" : "Start Practicing Now - Free!"}
                   <ArrowRight className="h-4 w-4" />
                 </button>
                 <button
                   onClick={onOpenStory}
                   className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-6 py-3.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 cursor-pointer"
                 >
-                  Explore Our Story
+                  How It Works
                 </button>
               </div>
             </div>
@@ -432,17 +432,88 @@ export const CampaignLanding: React.FC<CampaignLandingProps> = ({
         </div>
       </section>
 
-      {/* Our Mission & Value Proposition */}
+      {/* SPIN Selling Framework - Diagnostic Value Proposition */}
       <section id="mission" className="py-20 bg-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
-            <h2 className="text-xs font-extrabold uppercase tracking-widest text-purple-600">Our National Mission</h2>
+            <h2 className="text-xs font-extrabold uppercase tracking-widest text-blue-600">The 1-Minute School Diagnostic</h2>
             <p className="text-3xl font-extrabold text-slate-900 sm:text-4xl">
-              Fostering Communication and Intellectual Leadership
+              Why We Study English for Years but Still Feel Scared to Speak
             </p>
             <p className="text-base text-slate-500 leading-relaxed">
-              We believe English fluency is more than grammar rules. It is the capacity to form logic, build persuasive arguments, and express concepts confidently.
+              Copying board notes is not enough. You need real practice to speak without fear. Let's look at the cycle and how we fix it.
             </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-16">
+            {/* Situation */}
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-6 flex flex-col justify-between">
+              <div>
+                <span className="inline-flex items-center justify-center h-8 px-3 rounded-full bg-slate-100 text-slate-600 text-[10px] font-extrabold uppercase tracking-wider mb-4">
+                  01. The Current Way
+                </span>
+                <h3 className="text-base font-extrabold text-slate-900 mb-2">Blackboard Lessons</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  We spend hours writing down grammar rules from the board and memorizing dictionaries, but we almost never practice talking out loud.
+                </p>
+              </div>
+              <div className="text-[10px] text-slate-400 font-mono mt-4 font-semibold">
+                Classroom Reality
+              </div>
+            </div>
+
+            {/* Problem */}
+            <div className="rounded-2xl border border-red-100 bg-red-50/25 p-6 flex flex-col justify-between">
+              <div>
+                <span className="inline-flex items-center justify-center h-8 px-3 rounded-full bg-red-100 text-red-700 text-[10px] font-extrabold uppercase tracking-wider mb-4">
+                  02. The Big Struggle
+                </span>
+                <h3 className="text-base font-extrabold text-red-950 mb-2">The Exam-Only Freeze</h3>
+                <p className="text-xs text-red-900/80 leading-relaxed">
+                  We can pass written exams easily, but when someone asks us a real question in English, we freeze up, get nervous, and feel shy.
+                </p>
+              </div>
+              <div className="text-[10px] text-red-400 font-mono mt-4 font-semibold">
+                No Speaking Practice
+              </div>
+            </div>
+
+            {/* Implication */}
+            <div className="rounded-2xl border border-orange-100 bg-orange-50/25 p-6 flex flex-col justify-between">
+              <div>
+                <span className="inline-flex items-center justify-center h-8 px-3 rounded-full bg-orange-100 text-orange-700 text-[10px] font-extrabold uppercase tracking-wider mb-4">
+                  03. Why It Matters
+                </span>
+                <h3 className="text-base font-extrabold text-orange-950 mb-2">Missed Opportunities</h3>
+                <p className="text-xs text-orange-900/80 leading-relaxed">
+                  Not being able to speak English holds us back from getting great jobs, applying for global scholarships, or sharing our brilliant ideas.
+                </p>
+              </div>
+              <div className="text-[10px] text-orange-400 font-mono mt-4 font-semibold">
+                The Cost of Silence
+              </div>
+            </div>
+
+            {/* Need-Payoff */}
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/30 p-6 flex flex-col justify-between">
+              <div>
+                <span className="inline-flex items-center justify-center h-8 px-3 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-extrabold uppercase tracking-wider mb-4">
+                  04. The Simple Fix
+                </span>
+                <h3 className="text-base font-extrabold text-emerald-950 mb-2">Active Daily Practice</h3>
+                <p className="text-xs text-emerald-900/80 leading-relaxed">
+                  Our system lets you practice by doing. Record your voice, write fun daily stories, and debate hot topics with friends to build real confidence.
+                </p>
+              </div>
+              <div className="text-[10px] text-emerald-500 font-mono mt-4 font-bold">
+                The Path to Fluency
+              </div>
+            </div>
+          </div>
+
+          {/* Action-Oriented Three Pillars Grid */}
+          <div className="text-center max-w-3xl mx-auto mb-10">
+            <h3 className="text-xl font-bold text-slate-900">Three Easy Ways We Help You Learn</h3>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -450,9 +521,9 @@ export const CampaignLanding: React.FC<CampaignLandingProps> = ({
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-100 mb-6">
                 <BookOpen className="h-6 w-6" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-2">Structured Essays & Prompts</h3>
+              <h3 className="text-lg font-bold text-slate-900 mb-2">1. Simple Story Writing</h3>
               <p className="text-sm text-slate-600 leading-relaxed">
-                Regular letters, formal emails, and creative writing prompts evaluated with clear grading matrices including Grammar, Vocabulary, Structure, and Clarity.
+                Write short stories, daily letters, or simple emails. Your teachers can read them and give you quick, helpful tips to improve.
               </p>
             </div>
 
@@ -460,9 +531,9 @@ export const CampaignLanding: React.FC<CampaignLandingProps> = ({
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-600 text-white shadow-md shadow-orange-100 mb-6">
                 <Mic className="h-6 w-6" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-2">Speaking & Pronunciation</h3>
+              <h3 className="text-lg font-bold text-slate-900 mb-2">2. Easy Voice Recording</h3>
               <p className="text-sm text-slate-600 leading-relaxed">
-                Direct in-browser voice recording where students respond to speaking challenges. Teachers and mentors review pronunciation, fluency, and vocal clarity.
+                Record your voice directly inside our website using your phone or computer. Listen to yourself and get scoring from teachers.
               </p>
             </div>
 
@@ -470,18 +541,60 @@ export const CampaignLanding: React.FC<CampaignLandingProps> = ({
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-600 text-white shadow-md shadow-purple-100 mb-6">
                 <Users className="h-6 w-6" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-2">Community Debates</h3>
+              <h3 className="text-lg font-bold text-slate-900 mb-2">3. Friendly School Debates</h3>
               <p className="text-sm text-slate-600 leading-relaxed">
-                Topic-based debates on global prompts. Students vote and publish persuasive comments in structured format, building public speaking competence.
+                Discuss exciting topics with students from other schools. Vote on issues, share your own opinions, and read what others are saying.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Campaign Story */}
+      {/* Challenger Selling: Tailor for Stakeholder Resonance */}
       <section className="py-20 border-t border-b border-slate-100 bg-slate-50/30">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
+            <h2 className="text-xs font-extrabold uppercase tracking-widest text-orange-600">Made for Everyone</h2>
+            <p className="text-3xl font-extrabold text-slate-900 sm:text-4xl">
+              How Everyone Wins in the Campaign
+            </p>
+            <p className="text-base text-slate-500 leading-relaxed">
+              We made this system incredibly simple and exciting for students, teachers, and school directors alike.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
+            {/* Tailor for Students */}
+            <div className="bg-white rounded-2xl border border-slate-100 p-8 shadow-xs hover:shadow-md transition duration-300">
+              <span className="text-3xl">🚀</span>
+              <h3 className="text-lg font-bold text-slate-900 mt-4 mb-2">For Students</h3>
+              <p className="text-xs font-bold text-blue-600 mb-3 uppercase tracking-wider">Practice and Earn Rewards</p>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Stop just listening to lectures! Record your voice, earn fun badges, gain leveling points, and graduate with a beautiful digital certificate of fluency.
+              </p>
+            </div>
+
+            {/* Tailor for Teachers */}
+            <div className="bg-white rounded-2xl border border-slate-100 p-8 shadow-xs hover:shadow-md transition duration-300">
+              <span className="text-3xl">📝</span>
+              <h3 className="text-lg font-bold text-slate-900 mt-4 mb-2">For Teachers</h3>
+              <p className="text-xs font-bold text-orange-600 mb-3 uppercase tracking-wider">Grade in Two Simple Clicks</p>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Say goodbye to collecting heavy paper notebooks. Use our simple teacher panel to read essays and listen to voice recordings in seconds.
+              </p>
+            </div>
+
+            {/* Tailor for Admins/Directors */}
+            <div className="bg-white rounded-2xl border border-slate-100 p-8 shadow-xs hover:shadow-md transition duration-300">
+              <span className="text-3xl">📊</span>
+              <h3 className="text-lg font-bold text-slate-900 mt-4 mb-2">For School Directors</h3>
+              <p className="text-xs font-bold text-purple-600 mb-3 uppercase tracking-wider">See Your School Rise</p>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Keep track of your school's success. Watch student participation levels grow and see your school rise high on our national leaderboard.
+              </p>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             <div className="lg:col-span-6 space-y-6">
               <h3 className="text-2xl font-extrabold text-slate-900 sm:text-3xl">The Story Behind the Campaign</h3>
@@ -515,7 +628,7 @@ export const CampaignLanding: React.FC<CampaignLandingProps> = ({
                 </div>
                 <div>
                   <div className="text-sm font-bold text-slate-800">Mrs. Margaret Thompson</div>
-                  <div className="text-xs font-semibold text-slate-400">Department Head of English, Lincoln Academy</div>
+                  <div className="text-xs font-semibold text-slate-400">Department Head of English, ES Rubengera TSS</div>
                 </div>
               </div>
             </div>
