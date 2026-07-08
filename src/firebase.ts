@@ -5,15 +5,15 @@ import { getStorage } from "firebase/storage";
 import { getAnalytics, isSupported } from "firebase/analytics";
 import appletConfig from "../firebase-applet-config.json";
 
-// Production Firebase configuration, falling back to EFC defaults if not provided
+// Production Firebase configuration, using the user's custom project
 const firebaseConfig = {
-  apiKey: appletConfig.apiKey || "AIzaSyCUUXGT47PupflmLD2OgoK3-dwEng-mGIo",
-  authDomain: appletConfig.authDomain || "efc-rwandan-schools.firebaseapp.com",
-  projectId: appletConfig.projectId || "efc-rwandan-schools",
-  storageBucket: appletConfig.storageBucket || "efc-rwandan-schools.firebasestorage.app",
-  messagingSenderId: appletConfig.messagingSenderId || "311022171521",
-  appId: appletConfig.appId || "1:311022171521:web:4495fdc447b26b8348a480",
-  measurementId: appletConfig.measurementId || "G-3541QR617T"
+  apiKey: "AIzaSyCUUXGT47PupflmLD2OgoK3-dwEng-mGIo",
+  authDomain: "efc-rwandan-schools.firebaseapp.com",
+  projectId: "efc-rwandan-schools",
+  storageBucket: "efc-rwandan-schools.firebasestorage.app",
+  messagingSenderId: "311022171521",
+  appId: "1:311022171521:web:4495fdc447b26b8348a480",
+  measurementId: "G-3541QR617T"
 };
 
 // Initialize Firebase App
